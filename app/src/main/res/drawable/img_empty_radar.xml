@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 空状态插画：雷达扫描 + 岗位卡片，SVG 导出为 VectorDrawable -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="168dp"
+    android:viewportWidth="240"
+    android:viewportHeight="168">
+
+    <!-- 扫描扇形 -->
+    <path
+        android:pathData="M150,82 L212,59 L192,31 Z"
+        android:fillColor="#17B3A6"
+        android:fillAlpha="0.14" />
+
+    <!-- 三圈雷达 -->
+    <path
+        android:pathData="M86,82 A64,64 0 1,1 214,82 A64,64 0 1,1 86,82"
+        android:strokeColor="#17B3A6"
+        android:strokeAlpha="0.45"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M108,82 A42,42 0 1,1 192,82 A42,42 0 1,1 108,82"
+        android:strokeColor="#17B3A6"
+        android:strokeAlpha="0.28"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M128,82 A22,22 0 1,1 172,82 A22,22 0 1,1 128,82"
+        android:strokeColor="#17B3A6"
+        android:strokeAlpha="0.2"
+        android:strokeWidth="2" />
+
+    <!-- 十字准线 -->
+    <path
+        android:pathData="M150,18 L150,146"
+        android:strokeColor="#17B3A6"
+        android:strokeAlpha="0.16"
+        android:strokeWidth="1.5" />
+    <path
+        android:pathData="M86,82 L214,82"
+        android:strokeColor="#17B3A6"
+        android:strokeAlpha="0.16"
+        android:strokeWidth="1.5" />
+
+    <!-- 扫描线 -->
+    <path
+        android:pathData="M150,82 L212,59"
+        android:strokeColor="#E0A467"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+
+    <!-- 目标点 -->
+    <path
+        android:pathData="M186,64 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0"
+        android:fillColor="#0B6E68" />
+    <path
+        android:pathData="M148,118 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0"
+        android:fillColor="#C4782E"
+        android:fillAlpha="0.8" />
+    <path
+        android:pathData="M104,56 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+        android:fillColor="#17B3A6"
+        android:fillAlpha="0.7" />
+
+    <!-- 岗位卡片 -->
+    <path
+        android:pathData="M18,92 Q18,84 26,84 L70,84 Q78,84 78,92 L78,120 Q78,128 70,128 L26,128 Q18,128 18,120 Z"
+        android:strokeColor="#17B3A6"
+        android:strokeAlpha="0.55"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M28,100 L56,100"
+        android:strokeColor="#17B3A6"
+        android:strokeAlpha="0.5"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M28,110 L44,110"
+        android:strokeColor="#17B3A6"
+        android:strokeAlpha="0.3"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+
+    <path
+        android:pathData="M42,72 Q42,64 50,64 L94,64 Q102,64 102,72 L102,100 Q102,108 94,108 L50,108 Q42,108 42,100 Z"
+        android:strokeColor="#C4782E"
+        android:strokeAlpha="0.45"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M52,80 L80,80"
+        android:strokeColor="#C4782E"
+        android:strokeAlpha="0.45"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+
+</vector>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BossClaw</string>
+    <string name="accessibility_service_label">BossClaw 投递助手</string>
+    <string name="accessibility_service_description">开启后，BossClaw 才能读取 BOSS 直聘页面结构，按你的指令整理岗位、生成草稿，并在你确认后发送沟通。所有数据仅保存在本机。</string>
+</resources>
