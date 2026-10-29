@@ -192,6 +192,12 @@ private fun HeroEngineCard(
             .background(BossClawGradients.hero(dark))
     ) {
         RadarBackdrop(modifier = Modifier.matchParentSize())
+        // 顶部一层极淡的白色微光，加强渐变面的层次，不改变原有可读性。
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(BossClawGradients.sheen())
+        )
         Column(modifier = Modifier.padding(22.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

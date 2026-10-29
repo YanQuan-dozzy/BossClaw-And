@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -70,6 +71,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.bossclaw.android.R
 import com.bossclaw.android.agent.EngineState
+import com.bossclaw.android.ui.components.AppBackdrop
 import com.bossclaw.android.ui.navigation.Routes
 import com.bossclaw.android.ui.navigation.navSections
 import com.bossclaw.android.ui.screens.AutomationSettingsScreen
@@ -152,64 +154,68 @@ private fun BossClawAppContent(viewModel: BossClawViewModel, snackbarHostState: 
             )
         }
     ) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            topBar = {
-                BossClawTopBar(
-                    engineState = engineState,
-                    onMenu = { scope.launch { drawerState.open() } },
-                    onStatusClick = {
-                        if (currentRoute != Routes.WORKBENCH) navController.navigateTo(Routes.WORKBENCH)
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 背景层放在 Scaffold 之下，顶栏与页面内容都透明，氛围可以贯穿全屏。
+            AppBackdrop()
+            Scaffold(
+                containerColor = Color.Transparent,
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                topBar = {
+                    BossClawTopBar(
+                        engineState = engineState,
+                        onMenu = { scope.launch { drawerState.open() } },
+                        onStatusClick = {
+                            if (currentRoute != Routes.WORKBENCH) navController.navigateTo(Routes.WORKBENCH)
+                        }
+                    )
+                }
+            ) { innerPadding ->
+                NavHost(
+                    navController = navController,
+                    startDestination = Routes.WORKBENCH,
+                    modifier = Modifier.padding(innerPadding),
+                    enterTransition = {
+                        fadeIn(tween(200)) + slideInHorizontally(
+                            animationSpec = tween(BossClawMotion.BASE, easing = BossClawMotion.EmphasizedDecel),
+                            initialOffsetX = { it / 9 }
+                        )
+                    },
+                    exitTransition = {
+                        fadeOut(tween(150)) + slideOutHorizontally(
+                            animationSpec = tween(BossClawMotion.BASE, easing = BossClawMotion.EmphasizedAccel),
+                            targetOffsetX = { -it / 14 }
+                        )
+                    },
+                    popEnterTransition = {
+                        fadeIn(tween(200)) + slideInHorizontally(
+                            animationSpec = tween(BossClawMotion.BASE, easing = BossClawMotion.EmphasizedDecel),
+                            initialOffsetX = { -it / 9 }
+                        )
+                    },
+                    popExitTransition = {
+                        fadeOut(tween(150)) + slideOutHorizontally(
+                            animationSpec = tween(BossClawMotion.BASE, easing = BossClawMotion.EmphasizedAccel),
+                            targetOffsetX = { it / 14 }
+                        )
                     }
-                )
-            }
-        ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = Routes.WORKBENCH,
-                modifier = Modifier.padding(innerPadding),
-                enterTransition = {
-                    fadeIn(tween(200)) + slideInHorizontally(
-                        animationSpec = tween(BossClawMotion.BASE, easing = BossClawMotion.EmphasizedDecel),
-                        initialOffsetX = { it / 9 }
-                    )
-                },
-                exitTransition = {
-                    fadeOut(tween(150)) + slideOutHorizontally(
-                        animationSpec = tween(BossClawMotion.BASE, easing = BossClawMotion.EmphasizedAccel),
-                        targetOffsetX = { -it / 14 }
-                    )
-                },
-                popEnterTransition = {
-                    fadeIn(tween(200)) + slideInHorizontally(
-                        animationSpec = tween(BossClawMotion.BASE, easing = BossClawMotion.EmphasizedDecel),
-                        initialOffsetX = { -it / 9 }
-                    )
-                },
-                popExitTransition = {
-                    fadeOut(tween(150)) + slideOutHorizontally(
-                        animationSpec = tween(BossClawMotion.BASE, easing = BossClawMotion.EmphasizedAccel),
-                        targetOffsetX = { it / 14 }
-                    )
-                }
-            ) {
-                composable(Routes.WORKBENCH) {
-                    WorkbenchScreen(viewModel, onNavigate = { route -> navController.navigateTo(route) })
-                }
-                composable(Routes.INSIGHTS) {
-                    InsightsScreen(viewModel, onOpenRecords = { navController.navigateTo(Routes.RECORDS) })
-                }
-                composable(Routes.JOBS) { JobsScreen(viewModel) }
-                composable(Routes.CHAT) { ChatScreen(viewModel) }
-                composable(Routes.RESUME) { ResumeScreen(viewModel) }
-                composable(Routes.RECORDS) { RecordsScreen(viewModel) }
-                composable(Routes.PERMISSIONS) { PermissionsScreen(viewModel) }
-                composable(Routes.AUTOMATION) { AutomationSettingsScreen(viewModel) }
-                composable(Routes.MODEL) { ModelSettingsScreen(viewModel) }
-                composable(Routes.SKILLS) { SkillsSettingsScreen(viewModel) }
-                composable(Routes.SETTINGS) {
-                    SettingsScreen(viewModel, onNavigate = { route -> navController.navigateTo(route) })
+                ) {
+                    composable(Routes.WORKBENCH) {
+                        WorkbenchScreen(viewModel, onNavigate = { route -> navController.navigateTo(route) })
+                    }
+                    composable(Routes.INSIGHTS) {
+                        InsightsScreen(viewModel, onOpenRecords = { navController.navigateTo(Routes.RECORDS) })
+                    }
+                    composable(Routes.JOBS) { JobsScreen(viewModel) }
+                    composable(Routes.CHAT) { ChatScreen(viewModel) }
+                    composable(Routes.RESUME) { ResumeScreen(viewModel) }
+                    composable(Routes.RECORDS) { RecordsScreen(viewModel) }
+                    composable(Routes.PERMISSIONS) { PermissionsScreen(viewModel) }
+                    composable(Routes.AUTOMATION) { AutomationSettingsScreen(viewModel) }
+                    composable(Routes.MODEL) { ModelSettingsScreen(viewModel) }
+                    composable(Routes.SKILLS) { SkillsSettingsScreen(viewModel) }
+                    composable(Routes.SETTINGS) {
+                        SettingsScreen(viewModel, onNavigate = { route -> navController.navigateTo(route) })
+                    }
                 }
             }
         }
@@ -258,7 +264,7 @@ private fun BossClawTopBar(
             Spacer(modifier = Modifier.size(12.dp))
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = Color.Transparent,
             titleContentColor = MaterialTheme.colorScheme.onBackground
         )
     )

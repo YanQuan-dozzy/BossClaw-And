@@ -110,6 +110,15 @@ object BossClawGradients {
     fun sheen(): Brush = Brush.verticalGradient(
         colors = listOf(Color.White.copy(alpha = 0.10f), Color.Transparent)
     )
+
+    /** 卡片顶部微光：让纯色卡片有一点材质感，不靠更重的描边来区分层级。 */
+    fun cardSheen(dark: Boolean): Brush = Brush.verticalGradient(
+        colors = if (dark) {
+            listOf(Color.White.copy(alpha = 0.05f), Color.Transparent)
+        } else {
+            listOf(Color.White.copy(alpha = 0.62f), Color.Transparent)
+        }
+    )
 }
 
 /** 动效规格：统一时长与曲线，让页面切换、数值变化保持同一种节奏。 */
@@ -133,53 +142,53 @@ private val AppTypography = Typography(
     displaySmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 31.sp,
-        lineHeight = 38.sp,
+        fontSize = 32.sp,
+        lineHeight = 39.sp,
         letterSpacing = (-0.6).sp
     ),
     headlineMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 29.sp,
-        letterSpacing = (-0.2).sp
+        fontSize = 23.sp,
+        lineHeight = 30.sp,
+        letterSpacing = (-0.3).sp
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 19.sp,
-        lineHeight = 25.sp
+        fontSize = 19.5.sp,
+        lineHeight = 26.sp
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 15.sp,
-        lineHeight = 21.sp
+        fontSize = 15.5.sp,
+        lineHeight = 22.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.5.sp,
-        lineHeight = 22.sp
+        fontSize = 15.sp,
+        lineHeight = 23.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 20.sp
+        fontSize = 13.5.sp,
+        lineHeight = 21.sp
     ),
     labelLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 12.5.sp,
-        lineHeight = 16.sp
+        fontSize = 13.sp,
+        lineHeight = 17.sp
     ),
     labelSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 11.sp,
-        lineHeight = 15.sp,
-        letterSpacing = 0.3.sp
+        fontSize = 12.sp,
+        lineHeight = 16.5.sp,
+        letterSpacing = 0.2.sp
     )
 )
 

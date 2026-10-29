@@ -11,8 +11,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,9 +24,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -38,6 +43,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -51,7 +58,9 @@ import com.bossclaw.android.core.TimeUtils
 import com.bossclaw.android.model.FitLevel
 import com.bossclaw.android.model.LogLine
 import com.bossclaw.android.ui.theme.BossClawColors
+import com.bossclaw.android.ui.theme.BossClawGradients
 import com.bossclaw.android.ui.theme.BossClawMotion
+import com.bossclaw.android.ui.theme.LocalBossClawDark
 
 fun fitColor(level: FitLevel): Color = when (level) {
     FitLevel.STRONG -> BossClawColors.Teal
@@ -80,6 +89,46 @@ fun openSystemSettings(context: Context, intent: Intent) {
     }
 }
 
+/** 页面背景：品牌色雾 + 极细颗粒，让大面积底色不再是一块死平的色块。 */
+@Composable
+fun AppBackdrop(modifier: Modifier = Modifier) {
+    val dark = LocalBossClawDark.current
+    val grainColor = if (dark) Color.White.copy(alpha = 0.045f) else Color(0xFF14211F).copy(alpha = 0.035f)
+    val fogStrength = if (dark) 0.24f else 0.11f
+    Canvas(modifier = modifier.fillMaxSize()) {
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(BossClawColors.Teal.copy(alpha = fogStrength), Color.Transparent),
+                center = Offset(size.width * 0.08f, -size.height * 0.04f),
+                radius = size.width * 1.15f
+            )
+        )
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    BossClawColors.Amber.copy(alpha = if (dark) 0.10f else 0.07f),
+                    Color.Transparent
+                ),
+                center = Offset(size.width * 1.02f, size.height * 1.02f),
+                radius = size.width * 1.1f
+            )
+        )
+        // 确定性散点颗粒：不闪烁、开销可控，只负责提供一点纸面质感。
+        var seed = 0x5EED1234L
+        repeat(760) {
+            seed = seed * 6364136223846793005L + 1442695040888963407L
+            val fx = ((seed ushr 16) and 0xFFFF).toFloat() / 65535f
+            seed = seed * 6364136223846793005L + 1442695040888963407L
+            val fy = ((seed ushr 16) and 0xFFFF).toFloat() / 65535f
+            drawCircle(
+                color = grainColor,
+                radius = 1.1f,
+                center = Offset(fx * size.width, fy * size.height)
+            )
+        }
+    }
+}
+
 @Composable
 fun BossClawCard(
     modifier: Modifier = Modifier,
@@ -87,17 +136,20 @@ fun BossClawCard(
     emphasized: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val dark = LocalBossClawDark.current
     Surface(
         modifier = modifier.fillMaxWidth().animateContentSize(BossClawMotion.snappy()),
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = if (emphasized) 0.9f else 0.55f)
+            MaterialTheme.colorScheme.outline.copy(alpha = if (emphasized) 0.9f else 0.5f)
         ),
-        shadowElevation = if (emphasized) 6.dp else 1.dp
+        shadowElevation = if (emphasized) 8.dp else 1.dp
     ) {
-        Column(modifier = Modifier.padding(padding), content = content)
+        Box(modifier = Modifier.background(BossClawGradients.cardSheen(dark))) {
+            Column(modifier = Modifier.padding(padding), content = content)
+        }
     }
 }
 
@@ -112,19 +164,36 @@ fun ScreenHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            // 标题左侧的竖向品牌短线，给页面标题一个统一的识别锚点。
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(if (subtitle == null) 24.dp else 34.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                            )
+                        )
+                    )
             )
-            if (subtitle != null) {
+            Column(modifier = Modifier.padding(start = 12.dp)) {
                 Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 3.dp)
+                    )
+                }
             }
         }
         trailing()
@@ -376,16 +445,21 @@ fun QuickTile(
         Column(modifier = Modifier.padding(14.dp)) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(accent.copy(alpha = 0.14f)),
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(accent.copy(alpha = 0.20f), accent.copy(alpha = 0.07f))
+                        )
+                    )
+                    .border(1.dp, accent.copy(alpha = 0.18f), RoundedCornerShape(13.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = accent,
-                    modifier = Modifier.size(19.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
             Text(
