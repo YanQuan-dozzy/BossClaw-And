@@ -1,3 +1,11 @@
+# 本地开发敏感文件：仅保留在本机，禁止进入版本库；推送前必须确认未被提交
+/agent.md
+/.trae/
+/.screenshots/
+*.jks
+*.keystore
+*.env
+
 .gradle/
 /local.properties
 /.idea/
