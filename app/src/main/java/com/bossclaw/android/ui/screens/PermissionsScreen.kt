@@ -70,7 +70,7 @@ fun PermissionsScreen(viewModel: BossClawViewModel) {
             )
             PermissionLine(
                 title = "悬浮窗",
-                subtitle = "在 BOSS 上方显示状态与急停按钮",
+                subtitle = "在 BOSS 上方显示悬浮球与控制台",
                 granted = permissions.overlay,
                 actionLabel = "开启",
                 onClick = { openSystemSettings(context, PermissionTools.overlayIntent(context)) }

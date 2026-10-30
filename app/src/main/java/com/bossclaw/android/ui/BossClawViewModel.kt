@@ -81,6 +81,7 @@ open class BossClawViewModel(application: Application) : AndroidViewModel(applic
 
     val engineState: StateFlow<com.bossclaw.android.agent.EngineState> = AgentBus.state
     val currentTarget: StateFlow<String> = AgentBus.currentTarget
+    val recommendMatching: StateFlow<Boolean> = graph.orchestrator.recommendMatching
     val scene = AgentBus.scene
     val connected = AgentBus.connected
     val console = AgentBus.logs
@@ -115,7 +116,23 @@ open class BossClawViewModel(application: Application) : AndroidViewModel(applic
     val sendingReply = MutableStateFlow(false)
 
     init {
+        clearUnreadableResume()
         refreshPermissions()
+    }
+
+    /** 旧版本可能把图片等二进制内容当作文本存了下来，启动时清理掉，避免继续展示乱码。 */
+    private fun clearUnreadableResume() {
+        val storedText = configRepository.resumeText()
+        if (storedText.isBlank()) return
+        val storedName = configRepository.resumeFileName()
+        val extension = storedName.substringAfterLast('.', "")
+        val unsupportedName = extension.isNotEmpty() && !ResumeTools.isSupportedFile(storedName, null)
+        if (unsupportedName || !ResumeTools.isReadableText(storedText)) {
+            configRepository.saveResume("", "")
+            resumeText.value = ""
+            resumeFileName.value = ""
+            message.value = "已清除无法解析的简历内容，请重新导入 PDF / DOCX / TXT / MD"
+        }
     }
 
     fun refreshPermissions() {
@@ -154,6 +171,17 @@ open class BossClawViewModel(application: Application) : AndroidViewModel(applic
     fun stopEngine() = graph.orchestrator.stop()
 
     fun emergencyStop() = graph.orchestrator.emergencyStop("用户手动急停")
+
+    /** 首页推荐匹配：无需输入关键词，直接评估 BOSS 推荐流。 */
+    fun startRecommendMatch() {
+        if (engineState.value != com.bossclaw.android.agent.EngineState.IDLE) {
+            message.value = "当前巡查未结束，请先暂停或停止后再做推荐匹配"
+            return
+        }
+        if (!graph.orchestrator.startRecommendMatch()) {
+            message.value = "推荐匹配未能启动，请检查无障碍、模型与简历配置"
+        }
+    }
 
     fun runInboxOnce() {
         if (!graph.orchestrator.runInboxOnce()) {
@@ -230,11 +258,19 @@ open class BossClawViewModel(application: Application) : AndroidViewModel(applic
             busy.value = true
             val result = runCatching {
                 val name = queryFileName(uri)
+                val mime = context.contentResolver.getType(uri)
+                // 图片、压缩包等无法解析的文件在导入阶段直接拒绝，不写入简历也不展示原文
+                if (!ResumeTools.isSupportedFile(name, mime)) {
+                    error("仅支持 PDF / DOCX / TXT / MD，图片等无法解析的文件不会导入")
+                }
                 val text = withContext(Dispatchers.IO) {
-                    DocumentParser.extract(context, uri, name, context.contentResolver.getType(uri))
+                    DocumentParser.extract(context, uri, name, mime)
                 }
                 val normalized = ResumeTools.normalize(text)
                 if (normalized.isBlank()) error("文件内容为空")
+                if (!ResumeTools.isReadableText(normalized)) {
+                    error("未能读取到可识别的文字，请改用文本可复制的 PDF/DOCX 或直接粘贴正文")
+                }
                 configRepository.saveResume(normalized, name)
                 normalized to name
             }
@@ -376,10 +412,10 @@ open class BossClawViewModel(application: Application) : AndroidViewModel(applic
         val intent = Intent(context, FloatingHudService::class.java)
         if (enabled) {
             ContextCompat.startForegroundService(context, intent)
-            message.value = "悬浮控制台已开启"
+            message.value = "悬浮球已开启"
         } else {
             context.stopService(intent)
-            message.value = "悬浮控制台已关闭"
+            message.value = "悬浮球已关闭"
         }
     }
 

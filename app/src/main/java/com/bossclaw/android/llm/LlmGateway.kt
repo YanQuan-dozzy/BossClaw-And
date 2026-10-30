@@ -1,11 +1,9 @@
 package com.bossclaw.android.llm
 
-import com.bossclaw.android.core.TimeUtils
 import com.bossclaw.android.data.db.ChatMessageEntity
 import com.bossclaw.android.data.db.JobEntity
 import com.bossclaw.android.data.db.LlmAuditEntity
 import com.bossclaw.android.data.db.ProfileEntity
-import com.bossclaw.android.data.pref.AppSettings
 import com.bossclaw.android.data.repo.BossClawRepository
 import com.bossclaw.android.data.repo.ConfigRepository
 import java.util.concurrent.ConcurrentHashMap
@@ -112,11 +110,6 @@ class LlmGateway(
     private suspend fun <T> guardBudget(block: suspend (LlmConfig) -> T): T {
         val config = configRepository.llmConfig()
         if (!config.isReady) throw LlmException("请先在设置中配置模型服务与 API Key")
-        val settings: AppSettings = configRepository.settings.value
-        val tokens = repository.tokensSince(TimeUtils.todayStart())
-        if (tokens >= settings.dailyTokenBudget) {
-            throw LlmException("今日 Token 已用尽（$tokens / ${settings.dailyTokenBudget}），请在设置中调整预算或明日再试")
-        }
         val started = System.currentTimeMillis()
         return try {
             block(config)

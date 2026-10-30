@@ -5,13 +5,13 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.ui.graphics.vector.ImageVector
 
 object Routes {
@@ -33,16 +33,20 @@ data class NavEntry(val route: String, val label: String, val icon: ImageVector)
 
 data class NavSection(val title: String, val entries: List<NavEntry>)
 
-/** 侧栏分组：工作、运行、配置三段，避免一个长列表把所有入口挤在一起。 */
+/** 底部常驻的四个工作模块：日常最常用的切换入口，不再重复出现在侧栏与首页。 */
+val workTabs = listOf(
+    NavEntry(Routes.WORKBENCH, "工作台", Icons.Outlined.Dashboard),
+    NavEntry(Routes.JOBS, "岗位", Icons.Outlined.Work),
+    NavEntry(Routes.CHAT, "沟通", Icons.AutoMirrored.Outlined.Chat),
+    NavEntry(Routes.RESUME, "简历中心", Icons.Outlined.Description)
+)
+
+/** 侧栏只保留底部导航之外的入口：看板、运行记录与配置。 */
 val navSections = listOf(
     NavSection(
         title = "工作",
         entries = listOf(
-            NavEntry(Routes.WORKBENCH, "工作台", Icons.Outlined.Dashboard),
-            NavEntry(Routes.INSIGHTS, "数据看板", Icons.Outlined.BarChart),
-            NavEntry(Routes.JOBS, "岗位", Icons.Outlined.Work),
-            NavEntry(Routes.CHAT, "沟通", Icons.AutoMirrored.Outlined.Chat),
-            NavEntry(Routes.RESUME, "简历中心", Icons.Outlined.Description)
+            NavEntry(Routes.INSIGHTS, "数据看板", Icons.Outlined.BarChart)
         )
     ),
     NavSection(

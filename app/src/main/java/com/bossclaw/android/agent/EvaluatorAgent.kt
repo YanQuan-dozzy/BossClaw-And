@@ -34,7 +34,8 @@ class EvaluatorAgent(
 
     suspend fun evaluate(
         raw: ScrapedRawJob,
-        directions: List<DirectionEntity>
+        directions: List<DirectionEntity>,
+        cardTags: List<String> = emptyList()
     ): EvaluationOutcome = withContext(Dispatchers.IO) {
         val jobId = raw.resolveJobId()
         val existing = repository.findJob(jobId)
@@ -67,7 +68,7 @@ class EvaluatorAgent(
         repository.saveJob(job)
 
         val profile = repository.profile()
-        val verdict = filter.check(job, profile, settings)
+        val verdict = filter.check(job, profile, settings, cardTags)
         if (verdict.rejected) {
             repository.updateStatus(job.jobId, JobEntity.STATUS_FILTERED, verdict.reason)
             return@withContext EvaluationOutcome(

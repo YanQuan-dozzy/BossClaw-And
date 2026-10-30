@@ -19,10 +19,18 @@ data class FilterVerdict(val rejected: Boolean, val reason: String = "") {
 /**
  * 确定性岗位过滤：公司、HR 活跃度、地点、JD 关键词与截止日期全部本地判定，
  * 不消耗 AI Token，也不占用投递配额。
+ *
+ * [cardTags] 是职位列表中该卡片上读取到的短标签（如「4天/周」「4个月」），
+ * 用于对齐 BOSS 筛选面板的「时长」「出勤天数」两档；标签缺失时不做判定，避免误杀。
  */
 class JobFilter(private val repository: BossClawRepository) {
 
-    suspend fun check(job: JobEntity, profile: ProfileEntity?, settings: AppSettings): FilterVerdict {
+    suspend fun check(
+        job: JobEntity,
+        profile: ProfileEntity?,
+        settings: AppSettings,
+        cardTags: List<String> = emptyList()
+    ): FilterVerdict {
         val companies = repository.blacklistedCompanyNames()
         val companyHit = matchEitherWay(job.company, companies)
         if (companyHit != null) {
@@ -46,11 +54,36 @@ class JobFilter(private val repository: BossClawRepository) {
             )
         }
 
-        val expectedK = maxOf(settings.minSalaryK, profile?.minSalaryK ?: 0)
-        if (expectedK > 0) {
-            val jobMinK = salaryMinK(job.salaryText)
-            if (jobMinK != null && jobMinK < expectedK) {
-                return FilterVerdict.reject("薪资下限 ${jobMinK}K 低于期望 ${expectedK}K")
+        val tagText = cardTags.joinToString(" ")
+        if (settings.internshipMinMonths > 0) {
+            val months = monthsOf(tagText)
+            if (months != null && months < settings.internshipMinMonths) {
+                return FilterVerdict.reject("实习时长 $months 个月，低于要求的 ${settings.internshipMinMonths} 个月")
+            }
+        }
+        if (settings.weeklyMinDays > 0) {
+            val days = weeklyDaysOf(tagText)
+            if (days != null && days < settings.weeklyMinDays) {
+                return FilterVerdict.reject("每周出勤 $days 天，低于要求的 ${settings.weeklyMinDays} 天")
+            }
+        }
+
+        if (settings.salaryDaily) {
+            val expectedDaily = settings.minDailySalary
+            val jobDaily = dailySalaryMin(job.salaryText)
+            if (expectedDaily > 0 && jobDaily != null && jobDaily < expectedDaily) {
+                return FilterVerdict.reject("日薪 $jobDaily 元/天 低于期望 $expectedDaily 元/天")
+            }
+        } else if (settings.salaryTier != TIER_ANY) {
+            val verdict = salaryTierVerdict(settings.salaryTier, job.salaryText)
+            if (verdict != null) return FilterVerdict.reject(verdict)
+        } else {
+            val expectedK = maxOf(settings.minSalaryK, profile?.minSalaryK ?: 0)
+            if (expectedK > 0) {
+                val jobMinK = salaryMinK(job.salaryText)
+                if (jobMinK != null && jobMinK < expectedK) {
+                    return FilterVerdict.reject("薪资下限 ${jobMinK}K 低于期望 ${expectedK}K")
+                }
             }
         }
 
@@ -76,8 +109,15 @@ class JobFilter(private val repository: BossClawRepository) {
             }
         }
 
-        val degreeVerdict = degreeCheck(profile, job)
+        val degreeVerdict = when (settings.degreeRequirement) {
+            DEGREE_NONE -> null
+            DEGREE_AUTO -> degreeCheck(profile, job)
+            else -> degreeCeilingCheck(settings.degreeRequirement, job)
+        }
         if (degreeVerdict != null) return FilterVerdict.reject(degreeVerdict)
+
+        val experienceVerdict = experienceCeilingCheck(settings.experienceCeiling, job)
+        if (experienceVerdict != null) return FilterVerdict.reject(experienceVerdict)
 
         val keywords = splitList(settings.excludedJobKeywordsCsv)
         if (keywords.isNotEmpty()) {
@@ -132,6 +172,25 @@ class JobFilter(private val repository: BossClawRepository) {
         return null
     }
 
+    /** 日薪下限：只解析「元/天」「元/日」口径，月薪岗位返回 null（不跨口径误杀）。 */
+    private fun dailySalaryMin(text: String): Int? {
+        if (text.isBlank()) return null
+        val range = Regex("""(\d+(?:\.\d+)?)\s*[-~—至]\s*(\d+(?:\.\d+)?)\s*元/日?""").find(text)
+        if (range != null) return range.groupValues[1].toDouble().roundToInt()
+        val single = Regex("""(\d+(?:\.\d+)?)\s*元/日?""").find(text)
+        if (single != null) return single.groupValues[1].toDouble().roundToInt()
+        return null
+    }
+
+    /** 卡片标签里的实习时长（「3个月」「6个月」），未标注返回 null。 */
+    private fun monthsOf(tags: String): Int? =
+        Regex("""(\d{1,2})\s*个月""").find(tags)?.groupValues?.get(1)?.toIntOrNull()
+
+    /** 卡片标签里的每周出勤（「4天/周」「每周 3 天」），未标注返回 null。 */
+    private fun weeklyDaysOf(tags: String): Int? =
+        Regex("""(\d{1,2})\s*天\s*/\s*周""").find(tags)?.groupValues?.get(1)?.toIntOrNull()
+            ?: Regex("""每周\s*(\d{1,2})\s*天""").find(tags)?.groupValues?.get(1)?.toIntOrNull()
+
     private fun degreeCheck(profile: ProfileEntity?, job: JobEntity): String? {
         if (profile == null) return null
         val candidate = degreeRank(profile.education) ?: return null
@@ -141,14 +200,68 @@ class JobFilter(private val repository: BossClawRepository) {
         return null
     }
 
+    /** 指定学历档位时按「岗位要求不高于所选档」判定，与 BOSS 面板单选口径一致。 */
+    private fun degreeCeilingCheck(level: String, job: JobEntity): String? {
+        if (job.degree.contains("不限") || job.degree.contains("无要求")) return null
+        val required = degreeRank(job.degree) ?: return null
+        val ceiling = degreeRank(level) ?: return null
+        if (required > ceiling) return "学历要求 ${job.degree}，高于所选「$level」"
+        return null
+    }
+
     private fun degreeRank(text: String): Int? = when {
         text.isBlank() -> null
         text.contains("博士") -> 5
         text.contains("硕士") || text.contains("研究生") -> 4
         text.contains("本科") -> 3
         text.contains("大专") || text.contains("专科") -> 2
-        text.contains("高中") || text.contains("中专") -> 1
+        text.contains("高中") || text.contains("中专") || text.contains("中技") -> 1
+        text.contains("初中") -> 0
         else -> null
+    }
+
+    /** 经验要求上限：岗位要求的经验档高于所选档时跳过；未识别一律放行。 */
+    private fun experienceCeilingCheck(ceiling: String, job: JobEntity): String? {
+        if (ceiling == TIER_ANY) return null
+        val required = experienceRank(job.experience) ?: return null
+        val limit = experienceRank(ceiling) ?: return null
+        if (required > limit) return "经验要求「${job.experience}」高于所选「$ceiling」"
+        return null
+    }
+
+    private fun experienceRank(text: String): Int? {
+        val value = text.trim()
+        if (value.isBlank() || value.contains("不限")) return null
+        if (value.contains("在校")) return 0
+        if (value.contains("应届")) return 1
+        if (value.contains("10年以上")) return 6
+        if (Regex("""[1一]年以内|[1一]年以下|无经验""").containsMatchIn(value)) return 2
+        val range = Regex("""(\d{1,2})\s*[-~—至]\s*(\d{1,2})\s*年""").find(value) ?: return null
+        return when (range.groupValues[2].toInt()) {
+            in 0..1 -> 2
+            in 2..3 -> 3
+            in 4..5 -> 4
+            in 6..10 -> 5
+            else -> 6
+        }
+    }
+
+    /** 月薪档位过滤：按档位区间比较岗位薪资下限，未标注薪资时不误杀。 */
+    private fun salaryTierVerdict(tier: String, text: String): String? {
+        val jobMin = salaryMinK(text) ?: return null
+        val (low, high) = when (tier) {
+            "lt3" -> 0 to 3
+            "3to5" -> 3 to 5
+            "5to10" -> 5 to 10
+            "10to20" -> 10 to 20
+            "20to50" -> 20 to 50
+            "gt50" -> 50 to Int.MAX_VALUE
+            else -> return null
+        }
+        if (jobMin < low || jobMin >= high) {
+            return "薪资 ${text.ifBlank { "未标注" }} 不在所选薪资档位内"
+        }
+        return null
     }
 
     // ===== JD 截止日期 =====
@@ -220,7 +333,47 @@ class JobFilter(private val repository: BossClawRepository) {
         return if (today - ts > halfYear) thisYear + 1 else thisYear
     }
 
-    private companion object {
+    companion object {
+        const val TIER_ANY = "any"
+        const val DEGREE_AUTO = "auto"
+        const val DEGREE_NONE = "none"
+
+        /** 对齐 BOSS「薪资待遇」单选档（月薪口径）。 */
+        val SALARY_TIER_OPTIONS: List<Pair<String, String>> = listOf(
+            TIER_ANY to "全部",
+            "lt3" to "3K以下",
+            "3to5" to "3-5K",
+            "5to10" to "5-10K",
+            "10to20" to "10-20K",
+            "20to50" to "20-50K",
+            "gt50" to "50K以上"
+        )
+
+        /** 对齐 BOSS「学历要求」单选档；跟随画像时按本人学历做上限判断。 */
+        val DEGREE_OPTIONS: List<Pair<String, String>> = listOf(
+            DEGREE_AUTO to "跟随画像",
+            DEGREE_NONE to "不限",
+            "初中及以下" to "初中及以下",
+            "中专·中技" to "中专/中技",
+            "高中" to "高中",
+            "大专" to "大专",
+            "本科" to "本科",
+            "硕士" to "硕士",
+            "博士" to "博士"
+        )
+
+        /** 对齐 BOSS「经验要求」单选档，作为岗位经验要求的可接受上限。 */
+        val EXPERIENCE_OPTIONS: List<Pair<String, String>> = listOf(
+            TIER_ANY to "不限",
+            "在校生" to "在校生",
+            "应届生" to "应届生",
+            "1年以内" to "1年以内",
+            "1-3年" to "1-3年",
+            "3-5年" to "3-5年",
+            "5-10年" to "5-10年",
+            "10年以上" to "10年以上"
+        )
+
         val OUTSOURCING = listOf("外包", "驻场", "派遣", "外派", "劳务", "BPO", "人力外包", "项目外包")
         val HEADHUNTER = listOf("猎头", "人力资源服务", "人才服务", "劳务派遣")
 

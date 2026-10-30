@@ -4,16 +4,21 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Button
@@ -35,18 +40,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bossclaw.android.core.JsonCodec
 import com.bossclaw.android.data.db.DirectionEntity
 import com.bossclaw.android.data.db.ProfileEntity
+import com.bossclaw.android.domain.ResumeTools
 import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.components.BossClawCard
 import com.bossclaw.android.ui.components.EmptyState
 import com.bossclaw.android.ui.components.ScreenHeader
 import com.bossclaw.android.ui.theme.BossClawColors
+
+/** 超过该长度时输入框只展示预览，避免长文本逐字排版拖慢页面。 */
+private const val PREVIEW_CHARS = 1_500
 
 @Composable
 fun ResumeScreen(viewModel: BossClawViewModel) {
@@ -57,14 +66,26 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
     val busy by viewModel.busy.collectAsStateWithLifecycle()
 
     var editor by remember { mutableStateOf("") }
-    var showProfileEditor by remember { mutableStateOf(false) }
+    var expandEditor by remember { mutableStateOf(false) }
     var showDirectionForm by remember { mutableStateOf(false) }
 
-    LaunchedEffect(resumeText) { editor = resumeText }
+    LaunchedEffect(resumeText) {
+        editor = resumeText
+        expandEditor = false
+    }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.importResume(it) }
     }
+    // 只列出可解析的文档类型，图片等无法解析的文件不会出现在系统选择器里
+    val resumeMimeTypes = arrayOf(
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+        "text/markdown"
+    )
+    val hasResume = resumeText.isNotBlank() || editor.isNotBlank()
+    val folded = editor.length > PREVIEW_CHARS && !expandEditor
 
     Column(
         modifier = Modifier
@@ -96,26 +117,46 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${resumeText.length} 字 · 本地加密保存",
+                        text = "${editor.length} 字 · 本地加密保存",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
-                TextButton(onClick = { picker.launch(arrayOf("*/*")) }) {
+                TextButton(onClick = { picker.launch(resumeMimeTypes) }) {
                     Icon(Icons.Filled.Upload, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                    Text("导入")
+                    Text(if (hasResume) "重新导入" else "导入文件")
                 }
             }
+            val preview = if (folded) {
+                editor.take(PREVIEW_CHARS).trimEnd() +
+                    "\n\n…（全文共 ${editor.length} 字，已折叠预览；保存与生成画像仍使用完整原文）"
+            } else {
+                editor
+            }
             OutlinedTextField(
-                value = editor,
-                onValueChange = { editor = it },
+                value = preview,
+                onValueChange = { text -> editor = text.take(ResumeTools.MAX_RESUME_CHARS) },
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 180.dp),
-                label = { Text("简历原文（纯文本）") },
-                placeholder = { Text("支持 PDF / DOCX / TXT / MD，本地解析，原文不上传") },
+                label = { Text(if (folded) "简历原文（纯文本预览）" else "简历原文（纯文本）") },
+                placeholder = {
+                    Text("支持 PDF / DOCX / TXT / MD；图片、扫描件等无法解析的文件不会导入，可直接粘贴正文")
+                },
+                supportingText = {
+                    Text(
+                        if (folded) "预览已截断，保存原文与生成画像仍使用完整内容"
+                        else "单次编辑最多 ${ResumeTools.MAX_RESUME_CHARS} 字；超长文本会自动折叠以保证输入流畅"
+                    )
+                },
+                readOnly = folded,
                 minLines = 8,
                 maxLines = 16
             )
+            if (editor.length > PREVIEW_CHARS) {
+                TextButton(onClick = { expandEditor = !expandEditor }) {
+                    Text(if (expandEditor) "收起为预览（更流畅）" else "展开编辑全文（内容较长，输入可能变慢）")
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -124,7 +165,7 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
                     onClick = { viewModel.saveResume(editor, fileName) },
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("保存") }
+                ) { Text("保存原文") }
                 Button(
                     onClick = { viewModel.generateProfile() },
                     enabled = !busy,
@@ -134,20 +175,17 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
         }
 
         BossClawCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "候选人画像",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                TextButton(onClick = { showProfileEditor = !showProfileEditor }) {
-                    Text(if (showProfileEditor) "收起" else "编辑")
-                }
-            }
+            Text(
+                text = "候选人画像（可编辑草稿）",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "生成后可直接修改；技能、优势、目标岗位与城市用标签输入，点 × 删除",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
 
             val current = profile
             if (current == null) {
@@ -155,7 +193,7 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
                     title = "尚未生成画像",
                     message = "导入简历后点击“生成画像”，AI 会抽取年限、技能与目标方向，失败时自动回退本地解析"
                 )
-            } else if (showProfileEditor) {
+            } else {
                 ProfileForm(profile = current) { name, years, education, skills, strengths, summary, roles, cities, salary ->
                     viewModel.saveProfileFields(
                         name = name,
@@ -168,10 +206,7 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
                         cities = cities,
                         salaryK = salary
                     )
-                    showProfileEditor = false
                 }
-            } else {
-                ProfileSummary(profile = current)
             }
         }
 
@@ -195,90 +230,21 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
 }
 
 @Composable
-private fun ProfileSummary(profile: ProfileEntity) {
-    val skills = JsonCodec.decode(profile.skillsJson, emptyList<String>())
-    val strengths = JsonCodec.decode(profile.strengthsJson, emptyList<String>())
-    val roles = JsonCodec.decode(profile.targetRolesJson, emptyList<String>())
-    val cities = JsonCodec.decode(profile.targetCitiesJson, emptyList<String>())
-
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        InfoPill(profile.name.ifBlank { "未命名" })
-        InfoPill("${profile.years} 年")
-        if (profile.education.isNotBlank()) InfoPill(profile.education)
-    }
-    if (profile.summary.isNotBlank()) {
-        Text(
-            text = profile.summary,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 10.dp)
-        )
-    }
-    if (skills.isNotEmpty()) {
-        Text(
-            text = "技能 · ${skills.joinToString("、")}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-    }
-    if (strengths.isNotEmpty()) {
-        Text(
-            text = "优势 · ${strengths.joinToString("、")}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp)
-        )
-    }
-    if (roles.isNotEmpty() || cities.isNotEmpty()) {
-        Text(
-            text = "方向 · ${roles.joinToString(" / ")}${if (cities.isNotEmpty()) " ｜ ${cities.joinToString("、")}" else ""}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp)
-        )
-    }
-    if (profile.minSalaryK > 0) {
-        Text(
-            text = "期望薪资 · ${profile.minSalaryK}K 起",
-            style = MaterialTheme.typography.labelSmall,
-            color = BossClawColors.Teal,
-            modifier = Modifier.padding(top = 6.dp)
-        )
-    }
-}
-
-@Composable
-private fun InfoPill(text: String) {
-    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@Composable
 private fun ProfileForm(
     profile: ProfileEntity,
     onSave: (String, Int, String, List<String>, List<String>, String, List<String>, List<String>, Int) -> Unit
 ) {
     val skillsInit = remember(profile) {
-        JsonCodec.decode(profile.skillsJson, emptyList<String>()).joinToString("、")
+        JsonCodec.decode(profile.skillsJson, emptyList<String>())
     }
     val strengthsInit = remember(profile) {
-        JsonCodec.decode(profile.strengthsJson, emptyList<String>()).joinToString("、")
+        JsonCodec.decode(profile.strengthsJson, emptyList<String>())
     }
     val rolesInit = remember(profile) {
-        JsonCodec.decode(profile.targetRolesJson, emptyList<String>()).joinToString("、")
+        JsonCodec.decode(profile.targetRolesJson, emptyList<String>())
     }
     val citiesInit = remember(profile) {
-        JsonCodec.decode(profile.targetCitiesJson, emptyList<String>()).joinToString("、")
+        JsonCodec.decode(profile.targetCitiesJson, emptyList<String>())
     }
 
     var name by remember(profile) { mutableStateOf(profile.name) }
@@ -291,17 +257,37 @@ private fun ProfileForm(
     var roles by remember(profile) { mutableStateOf(rolesInit) }
     var cities by remember(profile) { mutableStateOf(citiesInit) }
 
-    Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         FormField("姓名", name) { name = it }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FormField("工作年限", years, number = true, modifier = Modifier.weight(1f)) { years = it }
             FormField("期望薪资(K)", salary, number = true, modifier = Modifier.weight(1f)) { salary = it }
         }
         FormField("学历", education) { education = it }
-        FormField("技能（用、分隔）", skills) { skills = it }
-        FormField("优势（用、分隔）", strengths) { strengths = it }
-        FormField("目标岗位（用、分隔）", roles) { roles = it }
-        FormField("目标城市（用、分隔）", cities) { cities = it }
+        ChipListField(
+            label = "技能",
+            hint = "输入后回车或点 + 添加，点 × 删除",
+            values = skills,
+            onChange = { skills = it }
+        )
+        ChipListField(
+            label = "优势",
+            hint = "如：沟通顺畅、交付稳定",
+            values = strengths,
+            onChange = { strengths = it }
+        )
+        ChipListField(
+            label = "目标岗位",
+            hint = "如：Android 开发、AI 产品经理",
+            values = roles,
+            onChange = { roles = it }
+        )
+        ChipListField(
+            label = "目标城市",
+            hint = "如：上海、杭州",
+            values = cities,
+            onChange = { cities = it }
+        )
         FormField("一句话自我介绍", summary, minLines = 2) { summary = it }
         Button(
             onClick = {
@@ -309,16 +295,103 @@ private fun ProfileForm(
                     name,
                     years.toIntOrNull() ?: 0,
                     education,
-                    splitList(skills),
-                    splitList(strengths),
+                    skills,
+                    strengths,
                     summary,
-                    splitList(roles),
-                    splitList(cities),
+                    roles,
+                    cities,
                     salary.toIntOrNull() ?: 0
                 )
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("保存画像") }
+    }
+}
+
+/** 标签式多值编辑：可继续输入新增，也可逐个删除，替代一整串用顿号分隔的文本。 */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChipListField(
+    label: String,
+    hint: String,
+    values: List<String>,
+    onChange: (List<String>) -> Unit
+) {
+    var input by remember { mutableStateOf("") }
+
+    fun commit() {
+        val parts = splitTags(input)
+        if (parts.isEmpty()) return
+        onChange((values + parts).distinct())
+        input = ""
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (values.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                values.forEach { value ->
+                    ProfileChip(value = value, onRemove = { onChange(values - value) })
+                }
+            }
+        }
+        OutlinedTextField(
+            value = input,
+            onValueChange = { raw ->
+                if (raw.any { it in "、,，/|\n" }) {
+                    val parts = splitTags(raw)
+                    if (parts.isNotEmpty()) onChange((values + parts).distinct())
+                    input = ""
+                } else {
+                    input = raw
+                }
+            },
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            placeholder = { Text(hint) },
+            singleLine = true,
+            trailingIcon = {
+                IconButton(onClick = { commit() }) {
+                    Icon(Icons.Filled.Add, contentDescription = "添加$label")
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { commit() })
+        )
+    }
+}
+
+@Composable
+private fun ProfileChip(value: String, onRemove: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+        shape = MaterialTheme.shapes.small
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 10.dp, top = 2.dp, bottom = 2.dp, end = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            IconButton(onClick = onRemove, modifier = Modifier.size(26.dp)) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "删除 $value",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
     }
 }
 
@@ -443,5 +516,6 @@ private fun DirectionsCard(
     }
 }
 
-private fun splitList(text: String): List<String> =
-    text.split('、', '，', ',', ' ', '/', '|').map { it.trim() }.filter { it.isNotBlank() }
+/** 标签输入按顿号、逗号、斜线等切分，保留词内的空格（如 Spring Boot）。 */
+private fun splitTags(text: String): List<String> =
+    text.split('、', '，', ',', '/', '|', '\n').map { it.trim() }.filter { it.isNotBlank() }

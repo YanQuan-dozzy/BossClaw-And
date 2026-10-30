@@ -15,7 +15,7 @@ class ScoutAgent(private val automator: AutomationGateway) {
 
     suspend fun inspect(card: CardAnchor): ScrapedRawJob? = automator.inspectJob(card)
 
-    suspend fun nextPage(): Boolean = automator.scrollFeed()
+    suspend fun nextPage(allowTabSwitch: Boolean = true): Boolean = automator.scrollFeed(allowTabSwitch)
 
     suspend fun returnToFeed() {
         automator.ensureFeed()

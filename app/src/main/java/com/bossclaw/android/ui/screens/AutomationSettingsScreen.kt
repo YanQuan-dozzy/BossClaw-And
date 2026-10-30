@@ -6,11 +6,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -23,14 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bossclaw.android.domain.HrActivity
+import com.bossclaw.android.domain.JobFilter
 import com.bossclaw.android.model.RunMode
 import com.bossclaw.android.model.Speed
 import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.components.BossClawCard
+import com.bossclaw.android.ui.components.BossClawDropdown
+import com.bossclaw.android.ui.components.BossClawNumberField
 import com.bossclaw.android.ui.components.ScreenHeader
 import com.bossclaw.android.ui.components.SettingSwitchRow
-import com.bossclaw.android.ui.components.tokenLabel
-import com.bossclaw.android.ui.theme.BossClawColors
 import kotlin.math.roundToInt
 
 @Composable
@@ -85,15 +84,15 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp)
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Speed.entries.forEach { speed ->
-                    FilterChip(
-                        selected = settings.speed == speed,
-                        onClick = { viewModel.updateSettings { it.copy(speed = speed) } },
-                        label = { Text(speed.label) }
-                    )
-                }
-            }
+            BossClawDropdown(
+                label = "岗位间隔节奏",
+                selectedValue = settings.speed.raw,
+                options = Speed.entries.map { it.raw to it.label },
+                onSelect = { raw ->
+                    viewModel.updateSettings { it.copy(speed = Speed.from(raw)) }
+                },
+                modifier = Modifier.padding(top = 6.dp)
+            )
         }
 
         BossClawCard {
@@ -109,8 +108,8 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 onCheckedChange = { enabled -> viewModel.updateSettings { it.copy(autoReply = enabled) } }
             )
             SettingSwitchRow(
-                title = "悬浮控制台",
-                subtitle = "在 BOSS 上方显示状态与急停按钮",
+                title = "悬浮球控制台",
+                subtitle = "在 BOSS 上方显示悬浮球，点开即可开始、暂停或急停",
                 checked = settings.floatingHud,
                 onCheckedChange = { viewModel.setHudEnabled(it) }
             )
@@ -119,6 +118,26 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 subtitle = "首单发送、HR 邀约与风控提醒",
                 checked = settings.notifications,
                 onCheckedChange = { enabled -> viewModel.updateSettings { it.copy(notifications = enabled) } }
+            )
+        }
+
+        BossClawCard {
+            Text(
+                text = "采集范围",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            SettingSwitchRow(
+                title = "无关键字匹配（BOSS 推荐流）",
+                subtitle = "直接读取 BOSS「推荐」流，不再按同一关键词反复搜索；账号内求职意向需先完善",
+                checked = settings.collectWithoutKeyword,
+                onCheckedChange = { enabled -> viewModel.updateSettings { it.copy(collectWithoutKeyword = enabled) } }
+            )
+            Text(
+                text = "开启后翻页只向下加载，不自动切换到「最新」流；关闭时按普通职位列表采集",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
 
@@ -158,10 +177,77 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
 
         BossClawCard {
             Text(
-                text = "筛选偏好",
+                text = "筛选条件（对齐 BOSS 筛选面板）",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Text(
+                text = "实习时长、每周出勤可自由填写具体数值；BOSS活跃状态、学历、经验按 BOSS「筛选」面板同名同序的档位，由本地按卡片与详情判定。" +
+                    "城市、行业、公司规模、融资等平台筛选仍请在 BOSS 顶部「实习 / 筛选」里手动点好，软件不代点平台按钮",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+            BossClawNumberField(
+                value = settings.internshipMinMonths,
+                onValueChange = { value ->
+                    viewModel.updateSettings { it.copy(internshipMinMonths = value) }
+                },
+                label = "实习时长（个月，0=不限）",
+                hint = "可自由填写任意月数；卡片未标注时长时不判定",
+                minValue = 0,
+                maxValue = 60,
+                placeholder = "如 3",
+                modifier = Modifier.padding(top = 10.dp)
+            )
+            BossClawNumberField(
+                value = settings.weeklyMinDays,
+                onValueChange = { value ->
+                    viewModel.updateSettings { it.copy(weeklyMinDays = value) }
+                },
+                label = "每周出勤天数（0=不限）",
+                hint = "按周出勤下限判定；可自由填写 1–7 天",
+                minValue = 0,
+                maxValue = 7,
+                placeholder = "如 4",
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Text(
+                text = "HR 活跃度",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 10.dp)
+            )
+            BossClawDropdown(
+                label = "BOSS活跃状态",
+                selectedValue = settings.hrActivityFilter,
+                options = HrActivity.OPTIONS,
+                onSelect = { raw ->
+                    viewModel.updateSettings { it.copy(hrActivityFilter = raw) }
+                },
+                modifier = Modifier.padding(top = 6.dp)
+            )
+            BossClawDropdown(
+                label = "学历要求",
+                selectedValue = settings.degreeRequirement,
+                options = JobFilter.DEGREE_OPTIONS,
+                onSelect = { raw ->
+                    viewModel.updateSettings { it.copy(degreeRequirement = raw) }
+                },
+                hint = "跟随画像：岗位要求高于你的学历才跳过；指定档位时，高于该档的岗位直接跳过",
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            BossClawDropdown(
+                label = "经验要求",
+                selectedValue = settings.experienceCeiling,
+                options = JobFilter.EXPERIENCE_OPTIONS,
+                onSelect = { raw ->
+                    viewModel.updateSettings { it.copy(experienceCeiling = raw) }
+                },
+                hint = "高于所选档位经验要求的岗位跳过；不限=不做经验过滤",
+                modifier = Modifier.padding(top = 8.dp)
+            )
+
             SettingSwitchRow(
                 title = "过滤外包",
                 subtitle = "跳过人力外包与驻场岗位",
@@ -174,21 +260,6 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 checked = settings.filterHeadhunter,
                 onCheckedChange = { enabled -> viewModel.updateSettings { it.copy(filterHeadhunter = enabled) } }
             )
-            Text(
-                text = "HR 活跃度",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 10.dp)
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(HrActivity.OPTIONS) { (value, label) ->
-                    FilterChip(
-                        selected = settings.hrActivityFilter == value,
-                        onClick = { viewModel.updateSettings { it.copy(hrActivityFilter = value) } },
-                        label = { Text(label) }
-                    )
-                }
-            }
             SettingSwitchRow(
                 title = "城市匹配",
                 subtitle = "只投递画像中的目标城市（未识别城市不误杀）",
@@ -217,39 +288,53 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
 
         BossClawCard {
             Text(
-                text = "额度与预算",
+                text = "额度与薪资",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             SliderRow(
                 title = "每日投递上限",
-                valueText = "${settings.maxDailyGreetings} 次（硬上限 150）",
-                value = settings.maxDailyGreetings.toFloat(),
-                range = 10f..150f,
-                steps = 27
-            ) { raw ->
-                val rounded = (raw / 5f).roundToInt() * 5
-                viewModel.updateSettings { it.copy(maxDailyGreetings = rounded.coerceIn(10, 150)) }
+                hint = "硬上限 150 次/天",
+                value = settings.maxDailyGreetings,
+                range = 1..150,
+                step = 1,
+                unit = "次/天"
+            ) { value ->
+                viewModel.updateSettings { it.copy(maxDailyGreetings = value) }
             }
-            SliderRow(
-                title = "期望薪资下限",
-                valueText = if (settings.minSalaryK <= 0) "不限" else "${settings.minSalaryK}K",
-                value = settings.minSalaryK.toFloat(),
-                range = 0f..80f,
-                steps = 15
-            ) { raw ->
-                val rounded = (raw / 5f).roundToInt() * 5
-                viewModel.updateSettings { it.copy(minSalaryK = rounded.coerceIn(0, 80)) }
-            }
-            SliderRow(
-                title = "每日 Token 预算",
-                valueText = tokenLabel(settings.dailyTokenBudget),
-                value = settings.dailyTokenBudget.toFloat(),
-                range = 50_000f..1_000_000f,
-                steps = 18
-            ) { raw ->
-                val rounded = (raw / 50_000f).roundToInt() * 50_000
-                viewModel.updateSettings { it.copy(dailyTokenBudget = rounded.coerceIn(50_000, 1_000_000)) }
+            SettingSwitchRow(
+                title = "薪资按日薪比较",
+                subtitle = "开启后按「元/天」比较（适合实习、兼职）；关闭则按「K/月」比较，两种口径各存各的值",
+                checked = settings.salaryDaily,
+                onCheckedChange = { enabled -> viewModel.updateSettings { it.copy(salaryDaily = enabled) } }
+            )
+            if (settings.salaryDaily) {
+                SliderRow(
+                    title = "最低日薪",
+                    hint = "低于该日薪的岗位跳过；0=不限",
+                    value = settings.minDailySalary,
+                    range = 0..2000,
+                    step = 10,
+                    unit = "元/天"
+                ) { value ->
+                    viewModel.updateSettings { it.copy(minDailySalary = value) }
+                }
+            } else {
+                BossClawNumberField(
+                    value = settings.minSalaryK,
+                    onValueChange = { value ->
+                        // 数值口径与旧的档位口径互斥，填入具体值后清空档位，避免两套规则叠加
+                        viewModel.updateSettings {
+                            it.copy(minSalaryK = value, salaryTier = JobFilter.TIER_ANY)
+                        }
+                    },
+                    label = "最低月薪（K/月，0=不限）",
+                    hint = "低于该月薪的岗位跳过；0=按画像里的期望薪资",
+                    minValue = 0,
+                    maxValue = 500,
+                    placeholder = "如 8",
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
         }
 
@@ -279,36 +364,54 @@ private fun SettingInput(
     )
 }
 
+/**
+ * 数值滑杆行：左侧是标题与说明，右侧可直接键入具体数值；
+ * 滑杆只做粗调，拖动结果按 [step] 取整，打字输入则原样生效。
+ */
 @Composable
 private fun SliderRow(
     title: String,
-    valueText: String,
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    steps: Int,
-    onValueChange: (Float) -> Unit
+    hint: String,
+    value: Int,
+    range: IntRange,
+    step: Int,
+    unit: String,
+    onValueChange: (Int) -> Unit
 ) {
-    Column(modifier = Modifier.padding(top = 8.dp)) {
+    Column(modifier = Modifier.padding(top = 10.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = valueText,
-                style = MaterialTheme.typography.labelLarge,
-                color = BossClawColors.Teal
+            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            BossClawNumberField(
+                value = value,
+                onValueChange = onValueChange,
+                label = unit,
+                minValue = range.first,
+                maxValue = range.last,
+                placeholder = value.toString(),
+                modifier = Modifier.width(132.dp)
             )
         }
         Slider(
-            value = value.coerceIn(range.start, range.endInclusive),
-            onValueChange = onValueChange,
-            valueRange = range,
-            steps = steps
+            value = value.coerceIn(range.first, range.last).toFloat(),
+            onValueChange = { raw ->
+                onValueChange(((raw / step).roundToInt() * step).coerceIn(range.first, range.last))
+            },
+            valueRange = range.first.toFloat()..range.last.toFloat()
         )
     }
 }

@@ -16,6 +16,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -34,6 +37,11 @@ class BossClawOrchestrator(
     private var inboxJob: Job? = null
     private var lastQuotaNotice = 0L
     private var lastConfigNotice = 0L
+
+    private val _recommendMatching = MutableStateFlow(false)
+
+    /** 首页推荐匹配是否正在执行，用于按钮显示进度。 */
+    val recommendMatching: StateFlow<Boolean> = _recommendMatching.asStateFlow()
 
     val isRunning: Boolean
         get() = loopJob?.isActive == true
@@ -56,21 +64,67 @@ class BossClawOrchestrator(
 
     fun start(once: Boolean = false): Boolean {
         if (isRunning) return false
+        if (!canStart()) return false
+        configRepository.setPaused(false)
+        AgentBus.setState(EngineState.RUNNING)
+        log("调度", if (once) "开始试跑一轮" else "BossClaw 开始巡查", "info")
+        loopJob = scope.launch { runLoop(once) }
+        return true
+    }
+
+    /**
+     * 首页「BOSS 推荐匹配」：不依赖任何关键词输入，
+     * 打开 BOSS 推荐流后一次性评估若干岗位即结束，不影响长时间巡查。
+     */
+    fun startRecommendMatch(): Boolean {
+        if (isRunning) return false
+        if (!canStart()) return false
+        configRepository.setPaused(false)
+        AgentBus.setState(EngineState.RUNNING)
+        log("调度", "开始 BOSS 推荐匹配：直接读取推荐流，无需输入关键词", "info")
+        loopJob = scope.launch {
+            _recommendMatching.value = true
+            try {
+                val profile = repository.profile()
+                val resume = configRepository.resumeText()
+                if (profile == null || resume.isBlank()) {
+                    log("调度", "请先在简历中心完善简历并生成画像", "error")
+                    return@launch
+                }
+                automator.openBoss()
+                delay(1200)
+                if (!scout.prepareFeed()) {
+                    log("探路", "未能进入职位推荐页，请确认 BOSS 停留在职位列表", "warn")
+                    return@launch
+                }
+                val count = processFeed(
+                    profile = profile,
+                    resume = resume,
+                    limit = RECOMMEND_BATCH,
+                    allowTabSwitch = !configRepository.settings.value.collectWithoutKeyword
+                )
+                log("调度", "推荐匹配完成，本轮评估 $count 个岗位", "info")
+            } finally {
+                _recommendMatching.value = false
+                AgentBus.setState(EngineState.IDLE)
+                AgentBus.setTarget("")
+            }
+        }
+        return true
+    }
+
+    /** 启动前的统一校验：无障碍连接与模型配置缺一不可。 */
+    private fun canStart(): Boolean {
         if (!automator.isConnected) {
             log("调度", "无障碍服务未连接，请先在系统设置中开启 BossClaw", "error")
             AgentBus.setState(EngineState.IDLE)
             return false
         }
-        val llm = configRepository.llmConfig()
-        if (!llm.isReady) {
+        if (!configRepository.llmConfig().isReady) {
             log("调度", "尚未配置模型服务，请到设置中填写 API Key", "warn")
             AgentBus.setState(EngineState.IDLE)
             return false
         }
-        configRepository.setPaused(false)
-        AgentBus.setState(EngineState.RUNNING)
-        log("调度", if (once) "开始试跑一轮" else "BossClaw 开始巡查", "info")
-        loopJob = scope.launch { runLoop(once) }
         return true
     }
 
@@ -203,7 +257,7 @@ class BossClawOrchestrator(
                 delay(700)
                 continue
             }
-            val feedCount = processFeed(profile, resume, if (once) 2 else 2)
+            val feedCount = processFeed(profile, resume, 2, !settings.collectWithoutKeyword)
             if (once) {
                 AgentBus.setState(EngineState.IDLE)
                 AgentBus.setTarget("")
@@ -235,7 +289,8 @@ class BossClawOrchestrator(
     private suspend fun processFeed(
         profile: com.bossclaw.android.data.db.ProfileEntity,
         resume: String,
-        limit: Int
+        limit: Int,
+        allowTabSwitch: Boolean = true
     ): Int {
         val settings = configRepository.settings.value
         if (!scout.prepareFeed()) {
@@ -244,7 +299,7 @@ class BossClawOrchestrator(
         }
         val cards = scout.scanCards().take(limit)
         if (cards.isEmpty()) {
-            scout.nextPage()
+            scout.nextPage(allowTabSwitch)
             return 0
         }
         var processed = 0
@@ -261,7 +316,7 @@ class BossClawOrchestrator(
             }
             processed++
             val directions = repository.enabledDirections()
-            val outcome = evaluator.evaluate(raw, directions)
+            val outcome = evaluator.evaluate(raw, directions, card.tags)
             if (outcome.duplicate) {
                 scout.returnToFeed()
                 continue
@@ -311,7 +366,7 @@ class BossClawOrchestrator(
             }
         }
         if (!configRepository.settings.value.paused) {
-            scout.nextPage()
+            scout.nextPage(allowTabSwitch)
         }
         return processed
     }
@@ -326,5 +381,7 @@ class BossClawOrchestrator(
     private companion object {
         const val MAX_SAFE_DAILY = 150
         const val BETWEEN_JOBS_MS = 20_000L
+        /** 推荐匹配一次处理的岗位数量，避免一轮就跑满一屏外的时间。 */
+        const val RECOMMEND_BATCH = 6
     }
 }

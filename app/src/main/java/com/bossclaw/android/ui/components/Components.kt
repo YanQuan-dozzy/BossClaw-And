@@ -5,7 +5,6 @@ import android.content.Intent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -14,11 +13,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,17 +27,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -51,6 +56,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.bossclaw.android.R
@@ -76,9 +82,10 @@ fun levelColor(level: String): Color = when (level) {
     else -> BossClawColors.Muted
 }
 
+/** Token 计数统一按 K / M 展示，避免出现 128000 这类长数字挤占版面。 */
 fun tokenLabel(value: Int): String = when {
-    value >= 100_000 -> "${value / 10_000}万"
-    value >= 10_000 -> "${value / 1_000}k"
+    value >= 1_000_000 -> "${value / 1_000_000}M"
+    value >= 1_000 -> "${value / 1_000}K"
     else -> value.toString()
 }
 
@@ -412,72 +419,6 @@ fun SettingSwitchRow(
     }
 }
 
-/** 首页快捷入口：图标底座 + 标题 + 说明，按下时轻微回弹。 */
-@Composable
-fun QuickTile(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    accent: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
-        animationSpec = BossClawMotion.snappy(),
-        label = "quick-tile-scale"
-    )
-    Surface(
-        modifier = modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(MaterialTheme.shapes.medium)
-            .clickable(
-                interactionSource = interaction,
-                indication = LocalIndication.current,
-                onClick = onClick
-            ),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(accent.copy(alpha = 0.20f), accent.copy(alpha = 0.07f))
-                        )
-                    )
-                    .border(1.dp, accent.copy(alpha = 0.18f), RoundedCornerShape(13.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 10.dp)
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
-    }
-}
-
 /** 权限/环境状态小格：一个圆点 + 标题 + 状态文案。 */
 @Composable
 fun StatusCell(
@@ -539,4 +480,128 @@ fun CompactLogRow(source: String, message: String, level: String, timestamp: Lon
             modifier = Modifier.padding(start = 8.dp, top = 1.dp)
         )
     }
+}
+
+/**
+ * 下拉选择器：替换横向滑动、或选项铺不满一行的小按钮。
+ * 选项较多或文案较长时不再挤出屏幕，也避免用户左右滑找选项。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BossClawDropdown(
+    label: String,
+    selectedValue: String,
+    options: List<Pair<String, String>>,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    hint: String? = null
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.firstOrNull { it.first == selectedValue }?.second ?: "未选择"
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (enabled) expanded = !expanded },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            singleLine = true,
+            label = { Text(label) },
+            supportingText = hint?.let { { Text(it) } },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            options.forEach { (value, text) ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (value == selectedValue) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    },
+                    onClick = {
+                        onSelect(value)
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 数值输入：替代只能选固定档位的下拉或写死的滑杆读数，允许用户直接键入个性化数值。
+ * 输入过程中保留文本，失焦时再按区间归一，避免「刚输入第一位就被抬高到下限」。
+ */
+@Composable
+fun BossClawNumberField(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    hint: String? = null,
+    minValue: Int = 0,
+    maxValue: Int = Int.MAX_VALUE,
+    placeholder: String = ""
+) {
+    var text by remember { mutableStateOf(value.toString()) }
+    var focused by remember { mutableStateOf(false) }
+    var syncedValue by remember { mutableStateOf(value) }
+
+    // 非输入态才跟随外部值（滑杆拖动、其他入口更新）刷新文本，编辑中的光标不会被重置。
+    LaunchedEffect(value, focused) {
+        if (!focused && value != syncedValue) {
+            text = value.toString()
+            syncedValue = value
+        }
+    }
+
+    OutlinedTextField(
+        value = text,
+        onValueChange = { raw ->
+            val digits = raw.filter { it.isDigit() }.take(9)
+            text = digits
+            val parsed = digits.toIntOrNull()
+            if (parsed != null && parsed in minValue..maxValue) {
+                syncedValue = parsed
+                onValueChange(parsed)
+            }
+        },
+        label = { Text(label) },
+        placeholder = { Text(placeholder) },
+        supportingText = hint?.let { { Text(it) } },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = modifier
+            .fillMaxWidth()
+            .onFocusChanged { state ->
+                focused = state.isFocused
+                if (state.isFocused) {
+                    syncedValue = value
+                } else {
+                    val clamped = (text.toIntOrNull() ?: value).coerceIn(minValue, maxValue)
+                    text = clamped.toString()
+                    if (clamped != value) {
+                        syncedValue = clamped
+                        onValueChange(clamped)
+                    }
+                }
+            }
+    )
 }

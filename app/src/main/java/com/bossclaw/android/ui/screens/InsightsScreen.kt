@@ -65,7 +65,7 @@ fun InsightsScreen(viewModel: BossClawViewModel, onOpenRecords: () -> Unit) {
         RecentActivity(logs = logs, onOpenRecords = onOpenRecords)
 
         Text(
-            text = "统计来自本地数据库，按本机时区计算；Token 统计只用于预算提醒",
+            text = "统计来自本地数据库，按本机时区计算；Token 统计仅作本地参考",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

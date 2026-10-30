@@ -120,7 +120,11 @@ class AutomationGateway(private val context: Context) {
                 val salary = leafs.firstOrNull { SALARY_REGEX.containsMatchIn(it.text) }?.text.orEmpty()
                 val (title, company) = resolveTitleAndCompany(leafs, bounds)
                 if (title.isNotBlank() && company.isNotBlank()) {
-                    anchors.add(CardAnchor(Rect(bounds), title, company, salary))
+                    val tags = leafs.map { it.text }
+                        .filter { CARD_TAG_REGEX.containsMatchIn(it) }
+                        .distinct()
+                        .take(4)
+                    anchors.add(CardAnchor(Rect(bounds), title, company, salary, tags))
                 }
                 card.recycle()
             }
@@ -142,11 +146,11 @@ class AutomationGateway(private val context: Context) {
         return withTimeoutOrNull(150_000) { deferred.await() }
     }
 
-    suspend fun scrollFeed(): Boolean {
+    suspend fun scrollFeed(allowTabSwitch: Boolean = true): Boolean {
         val active = service ?: return false
         val deferred = CompletableDeferred<Boolean>()
         val task = ScrollFeedTask(
-            allowTabSwitch = true,
+            allowTabSwitch = allowTabSwitch,
             onCompleted = { if (!deferred.isCompleted) deferred.complete(true) },
             onFailed = { if (!deferred.isCompleted) deferred.complete(false) }
         )
@@ -367,5 +371,7 @@ class AutomationGateway(private val context: Context) {
         const val BOSS_PACKAGE = "com.hpbr.bosszhipin"
         private val SALARY_REGEX = Regex("""(\d+[-~至]\d+[Kk万·元]|面议|\d+元/[天月小时])""")
         private val TAG_REGEX = Regex("""(经验|年|应届|本科|大专|硕士|博士|学历|不限|在校|先生|女士|HR|招聘|活跃|刚刚|今日)""")
+        /** 职位列表卡片上的实习相关短标签，用于本地对齐 BOSS 筛选面板的时长 / 出勤档位。 */
+        private val CARD_TAG_REGEX = Regex("""(^\d{1,2}\s*天\s*/\s*周$|^\d{1,2}\s*个月$)""")
     }
 }

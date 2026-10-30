@@ -7,13 +7,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -37,8 +34,13 @@ import com.bossclaw.android.llm.ThinkingMode
 import com.bossclaw.android.llm.ThinkingProfiles
 import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.components.BossClawCard
+import com.bossclaw.android.ui.components.BossClawDropdown
+import com.bossclaw.android.ui.components.BossClawNumberField
 import com.bossclaw.android.ui.components.ScreenHeader
 import com.bossclaw.android.ui.theme.BossClawColors
+
+/** 窗口下拉里的「自定义」哨兵值，不对应真实 token 数。 */
+private const val CUSTOM_WINDOW = "custom"
 
 @Composable
 fun ModelSettingsScreen(viewModel: BossClawViewModel) {
@@ -85,6 +87,10 @@ private fun ModelCard(
     var contextUsage by remember { mutableStateOf(ContextUsage.from(initial.contextUsage)) }
     var thinkingEnabled by remember { mutableStateOf(initial.thinkingEnabled) }
     var thinkingEffort by remember { mutableStateOf(initial.thinkingEffort) }
+    // 窗口不在预设档时进入自定义态，允许直接填入模型实际窗口
+    var customWindow by remember {
+        mutableStateOf(ContextBudget.WINDOW_PRESETS.none { it.first == contextWindow })
+    }
 
     fun currentConfig(): LlmConfig = initial.copy(
         provider = provider,
@@ -114,26 +120,23 @@ private fun ModelCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        BossClawDropdown(
+            label = "服务商预设",
+            selectedValue = provider,
+            options = LlmPresets.all.map { it.id to it.name },
+            hint = "选择预设后仍可手动修改地址与模型名",
+            onSelect = { id ->
+                val preset = LlmPresets.find(id)
+                provider = preset.id
+                protocol = preset.protocol
+                if (preset.baseUrl.isNotBlank()) baseUrl = preset.baseUrl
+                if (preset.model.isNotBlank()) model = preset.model
+                // 换服务商后思考能力随之变化，先回到关闭状态，避免把旧档位带到不支持的模型
+                thinkingEnabled = false
+                thinkingEffort = ""
+            },
             modifier = Modifier.padding(top = 10.dp)
-        ) {
-            items(LlmPresets.all) { preset ->
-                FilterChip(
-                    selected = provider == preset.id,
-                    onClick = {
-                        provider = preset.id
-                        protocol = preset.protocol
-                        if (preset.baseUrl.isNotBlank()) baseUrl = preset.baseUrl
-                        if (preset.model.isNotBlank()) model = preset.model
-                        // 换服务商后思考能力随之变化，先回到关闭状态，避免把旧档位带到不支持的模型
-                        thinkingEnabled = false
-                        thinkingEffort = ""
-                    },
-                    label = { Text(preset.name) }
-                )
-            }
-        }
+        )
 
         OutlinedTextField(
             value = baseUrl,
@@ -182,18 +185,13 @@ private fun ModelCard(
             )
         }
         if (thinking.supported && thinking.isActive(thinkingEnabled) && thinking.efforts.isNotEmpty()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                items(thinking.efforts) { effort ->
-                    FilterChip(
-                        selected = thinking.resolveEffort(thinkingEffort) == effort,
-                        onClick = { thinkingEffort = effort },
-                        label = { Text(thinking.effortLabel(effort)) }
-                    )
-                }
-            }
+            BossClawDropdown(
+                label = "思考强度",
+                selectedValue = thinking.resolveEffort(thinkingEffort),
+                options = thinking.efforts.map { it to thinking.effortLabel(it) },
+                onSelect = { thinkingEffort = it },
+                modifier = Modifier.padding(top = 10.dp)
+            )
         }
 
         Text(
@@ -208,17 +206,34 @@ private fun ModelCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp)
         )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        BossClawDropdown(
+            label = "窗口大小",
+            selectedValue = if (customWindow) CUSTOM_WINDOW else contextWindow.toString(),
+            options = ContextBudget.WINDOW_PRESETS.map { it.first.toString() to it.second } +
+                (CUSTOM_WINDOW to "自定义…"),
+            hint = "按模型实际窗口选择；也可选「自定义…」按 K 为单位填写窗口大小",
+            onSelect = { raw ->
+                if (raw == CUSTOM_WINDOW) {
+                    customWindow = true
+                } else {
+                    customWindow = false
+                    contextWindow = raw.toIntOrNull() ?: ContextBudget.DEFAULT_WINDOW
+                }
+            },
             modifier = Modifier.padding(top = 8.dp)
-        ) {
-            items(ContextBudget.WINDOW_PRESETS) { (value, label) ->
-                FilterChip(
-                    selected = contextWindow == value,
-                    onClick = { contextWindow = value },
-                    label = { Text(label) }
-                )
-            }
+        )
+        if (customWindow) {
+            // 输入与展示统一按 K 为单位，落库时再换算成 token 数，避免出现 128000 这类长数字
+            BossClawNumberField(
+                value = contextWindow / 1_000,
+                onValueChange = { contextWindow = ContextBudget.normalizeWindow(it * 1_000) },
+                label = "自定义窗口（K tokens）",
+                hint = "范围 ${ContextBudget.MIN_WINDOW / 1_000}K–${ContextBudget.MAX_WINDOW / 1_000}K；填大超出模型窗口会请求失败",
+                minValue = ContextBudget.MIN_WINDOW / 1_000,
+                maxValue = ContextBudget.MAX_WINDOW / 1_000,
+                placeholder = "如 128",
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
         Text(
             text = "上下文用量",
@@ -226,18 +241,13 @@ private fun ModelCard(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = 14.dp)
         )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        BossClawDropdown(
+            label = "用量档位",
+            selectedValue = contextUsage.raw,
+            options = ContextUsage.entries.map { it.raw to it.label },
+            onSelect = { contextUsage = ContextUsage.from(it) },
             modifier = Modifier.padding(top = 8.dp)
-        ) {
-            ContextUsage.entries.forEach { usage ->
-                FilterChip(
-                    selected = contextUsage == usage,
-                    onClick = { contextUsage = usage },
-                    label = { Text(usage.label) }
-                )
-            }
-        }
+        )
         Text(
             text = budget.note,
             style = MaterialTheme.typography.labelSmall,

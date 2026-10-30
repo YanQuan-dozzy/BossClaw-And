@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +39,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
@@ -74,6 +76,7 @@ import com.bossclaw.android.agent.EngineState
 import com.bossclaw.android.ui.components.AppBackdrop
 import com.bossclaw.android.ui.navigation.Routes
 import com.bossclaw.android.ui.navigation.navSections
+import com.bossclaw.android.ui.navigation.workTabs
 import com.bossclaw.android.ui.screens.AutomationSettingsScreen
 import com.bossclaw.android.ui.screens.ChatScreen
 import com.bossclaw.android.ui.screens.InsightsScreen
@@ -166,6 +169,14 @@ private fun BossClawAppContent(viewModel: BossClawViewModel, snackbarHostState: 
                         onMenu = { scope.launch { drawerState.open() } },
                         onStatusClick = {
                             if (currentRoute != Routes.WORKBENCH) navController.navigateTo(Routes.WORKBENCH)
+                        }
+                    )
+                },
+                bottomBar = {
+                    BossClawBottomBar(
+                        currentRoute = currentRoute,
+                        onSelect = { route ->
+                            if (route != currentRoute) navController.navigateTo(route)
                         }
                     )
                 }
@@ -271,6 +282,37 @@ private fun BossClawTopBar(
 }
 
 @Composable
+private fun BossClawBottomBar(currentRoute: String, onSelect: (String) -> Unit) {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        tonalElevation = 0.dp
+    ) {
+        workTabs.forEach { entry ->
+            val selected = currentRoute == entry.route
+            NavigationBarItem(
+                selected = selected,
+                onClick = { onSelect(entry.route) },
+                icon = {
+                    Icon(
+                        imageVector = entry.icon,
+                        contentDescription = entry.label,
+                        modifier = Modifier.size(21.dp)
+                    )
+                },
+                label = { Text(entry.label, style = MaterialTheme.typography.labelSmall) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        }
+    }
+}
+
+@Composable
 private fun EngineStatusChip(state: EngineState, onClick: () -> Unit) {
     val color = when (state) {
         EngineState.RUNNING -> BossClawColors.Success
@@ -321,7 +363,8 @@ private fun BossClawDrawer(
 ) {
     val dark = LocalBossClawDark.current
     ModalDrawerSheet(
-        modifier = Modifier.widthIn(max = 316.dp),
+        // 侧栏固定占屏宽 60%，其余部分留给页面内容与手势返回区域
+        modifier = Modifier.fillMaxWidth(0.6f),
         drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
         drawerContainerColor = MaterialTheme.colorScheme.surface
     ) {

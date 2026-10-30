@@ -32,12 +32,10 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -71,7 +69,6 @@ import com.bossclaw.android.model.DailyStats
 import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.PermissionSnapshot
 import com.bossclaw.android.ui.components.BossClawCard
-import com.bossclaw.android.ui.components.QuickTile
 import com.bossclaw.android.ui.components.StatusCell
 import com.bossclaw.android.ui.navigation.Routes
 import com.bossclaw.android.ui.theme.BossClawColors
@@ -93,6 +90,7 @@ fun WorkbenchScreen(viewModel: BossClawViewModel, onNavigate: (String) -> Unit) 
     val target by viewModel.currentTarget.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    val matching by viewModel.recommendMatching.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -121,10 +119,15 @@ fun WorkbenchScreen(viewModel: BossClawViewModel, onNavigate: (String) -> Unit) 
             )
         }
         Reveal(index = 1) {
-            SystemStatusCard(permissions = permissions) { onNavigate(Routes.PERMISSIONS) }
+            RecommendMatchCard(
+                engineState = engineState,
+                matching = matching,
+                noKeyword = settings.collectWithoutKeyword,
+                onStart = viewModel::startRecommendMatch
+            )
         }
         Reveal(index = 2) {
-            QuickAccessCard(onNavigate = onNavigate)
+            SystemStatusCard(permissions = permissions) { onNavigate(Routes.PERMISSIONS) }
         }
         Reveal(index = 3) {
             TodayOverview(stats = stats) { onNavigate(Routes.INSIGHTS) }
@@ -603,45 +606,83 @@ private fun SystemStatusCard(permissions: PermissionSnapshot, onOpen: () -> Unit
     }
 }
 
+/** BOSS 推荐匹配：无需任何输入，直接读取推荐流岗位并逐个评估入库。 */
 @Composable
-private fun QuickAccessCard(onNavigate: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            QuickTile(
-                icon = Icons.Outlined.Work,
-                title = "岗位",
-                subtitle = "评估与投递",
-                accent = BossClawColors.Teal,
-                onClick = { onNavigate(Routes.JOBS) },
-                modifier = Modifier.weight(1f)
-            )
-            QuickTile(
-                icon = Icons.AutoMirrored.Outlined.Chat,
-                title = "沟通",
-                subtitle = "HR 会话",
-                accent = BossClawColors.Amber,
-                onClick = { onNavigate(Routes.CHAT) },
-                modifier = Modifier.weight(1f)
-            )
+private fun RecommendMatchCard(
+    engineState: EngineState,
+    matching: Boolean,
+    noKeyword: Boolean,
+    onStart: () -> Unit
+) {
+    val busy = matching || engineState == EngineState.RUNNING || engineState == EngineState.PAUSED
+    BossClawCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                BossClawColors.Teal.copy(alpha = 0.20f),
+                                BossClawColors.Teal.copy(alpha = 0.07f)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoAwesome,
+                    contentDescription = null,
+                    tint = BossClawColors.Teal,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(
+                    text = "BOSS 推荐匹配",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = if (noKeyword) {
+                        "不输入关键词，直接评估 BOSS 推荐流里的岗位"
+                    } else {
+                        "按 BOSS 当前列表读取岗位，读取后自动评估"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            QuickTile(
-                icon = Icons.Outlined.Description,
-                title = "简历中心",
-                subtitle = "画像与方向",
-                accent = BossClawColors.TealDeep,
-                onClick = { onNavigate(Routes.RESUME) },
-                modifier = Modifier.weight(1f)
-            )
-            QuickTile(
-                icon = Icons.Outlined.BarChart,
-                title = "数据看板",
-                subtitle = "漏斗与足迹",
-                accent = BossClawColors.Muted,
-                onClick = { onNavigate(Routes.INSIGHTS) },
-                modifier = Modifier.weight(1f)
-            )
+        Button(
+            onClick = onStart,
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+        ) {
+            if (matching) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+                Text("匹配中…", modifier = Modifier.padding(start = 6.dp))
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(17.dp)
+                )
+                Text("开始推荐匹配", modifier = Modifier.padding(start = 5.dp))
+            }
         }
+        Text(
+            text = "匹配结果进入岗位页；发送仍遵守运行模式与人工确认",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp)
+        )
     }
 }
 

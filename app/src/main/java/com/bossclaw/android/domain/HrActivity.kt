@@ -4,6 +4,10 @@ package com.bossclaw.android.domain
  * HR 活跃度分级（7 级口径）：
  * 在线(7) > 刚刚活跃(6) > 今日活跃(5) > 3日内活跃(4) > 本周活跃(3) > 本月活跃(2) > 半年前活跃(1)
  * rank=0 表示未识别，不参与过滤，避免误杀。
+ *
+ * 可选档位与 BOSS 筛选面板的「BOSS活跃状态」保持一致：
+ * 不限 / 今日活跃 / 3日内活跃 / 本周活跃 / 本月活跃。
+ * 面板没有的「在线」「刚刚活跃」仍会被识别为更高等级，只是不作为独立档位单选。
  */
 object HrActivity {
 
@@ -12,17 +16,13 @@ object HrActivity {
     const val WEEK = "week"
     const val THREE_DAYS = "3days"
     const val TODAY = "today"
-    const val JUST_ACTIVE = "justActive"
-    const val ONLINE = "online"
 
     val OPTIONS: List<Pair<String, String>> = listOf(
         ANY to "不限",
-        MONTH to "本月活跃及以上",
-        WEEK to "本周活跃及以上",
-        THREE_DAYS to "3日内活跃及以上",
-        TODAY to "今日活跃及以上",
-        JUST_ACTIVE to "刚刚活跃及以上",
-        ONLINE to "仅在线"
+        TODAY to "今日活跃",
+        THREE_DAYS to "3日内活跃",
+        WEEK to "本周活跃",
+        MONTH to "本月活跃"
     )
 
     private val FILTER_RANK = mapOf(
@@ -30,9 +30,7 @@ object HrActivity {
         MONTH to 2,
         WEEK to 3,
         THREE_DAYS to 4,
-        TODAY to 5,
-        JUST_ACTIVE to 6,
-        ONLINE to 7
+        TODAY to 5
     )
 
     private val ONLINE_LABEL = Regex("""(?:^|[^\u4e00-\u9fa5A-Za-z0-9])在线(?:[^\u4e00-\u9fa5A-Za-z0-9]|$)""")

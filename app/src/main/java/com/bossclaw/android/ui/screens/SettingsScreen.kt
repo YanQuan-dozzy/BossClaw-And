@@ -21,7 +21,6 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.components.BossClawCard
+import com.bossclaw.android.ui.components.BossClawDropdown
 import com.bossclaw.android.ui.components.ScreenHeader
 import com.bossclaw.android.ui.navigation.Routes
 import com.bossclaw.android.ui.theme.BossClawColors
@@ -137,18 +137,19 @@ fun SettingsScreen(viewModel: BossClawViewModel, onNavigate: (String) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp)
             )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            BossClawDropdown(
+                label = "深浅色",
+                selectedValue = settings.themeMode,
+                options = listOf(
+                    "system" to "跟随系统",
+                    "light" to "浅色",
+                    "dark" to "深色"
+                ),
+                onSelect = { value ->
+                    viewModel.updateSettings { it.copy(themeMode = value) }
+                },
                 modifier = Modifier.padding(top = 10.dp)
-            ) {
-                listOf("system" to "跟随系统", "light" to "浅色", "dark" to "深色").forEach { (value, label) ->
-                    FilterChip(
-                        selected = settings.themeMode == value,
-                        onClick = { viewModel.updateSettings { it.copy(themeMode = value) } },
-                        label = { Text(label) }
-                    )
-                }
-            }
+            )
         }
 
         BossClawCard {

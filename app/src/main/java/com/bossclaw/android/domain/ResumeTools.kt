@@ -6,6 +6,12 @@ import com.bossclaw.android.llm.ProfileResult
 
 object ResumeTools {
 
+    /** 仅这些扩展名进入解析流程；图片、压缩包等一律在导入时就拦截。 */
+    private val supportedExtensions = setOf("pdf", "docx", "txt", "md", "markdown", "text")
+
+    /** 编辑器持有的最大字符数，超过后折叠展示，避免长文本拖慢输入框。 */
+    const val MAX_RESUME_CHARS = 20_000
+
     private val commonSkills = listOf(
         "Kotlin", "Java", "Python", "Go", "JavaScript", "TypeScript", "C++", "C#", "Rust", "Swift",
         "Android", "iOS", "Flutter", "React Native", "React", "Vue", "Node.js", "Spring", "Spring Boot",
@@ -20,6 +26,24 @@ object ResumeTools {
         .replace("\r\n", "\n")
         .replace(Regex("""\n{3,}"""), "\n\n")
         .trim()
+
+    /** 导入前判定文件类型：图片、二进制包等无法解析的内容不进解析流程。 */
+    fun isSupportedFile(name: String, mimeType: String?): Boolean {
+        if (mimeType?.startsWith("image/") == true) return false
+        val extension = name.substringAfterLast('.', "").lowercase()
+        if (extension in supportedExtensions) return true
+        // 无扩展名的纯文本文件按 MIME 放行，其余一律拒绝
+        return extension.isEmpty() && mimeType?.startsWith("text/") == true
+    }
+
+    /** 解析结果可读性兜底：二进制内容即使被当成文本读出，也不写入简历。 */
+    fun isReadableText(text: String): Boolean {
+        if (text.isBlank()) return false
+        val sample = text.take(2_000)
+        if (sample.startsWith("%PDF") || sample.contains("IHDR") || sample.startsWith("%PNG")) return false
+        val bad = sample.count { it == '\uFFFD' || (it.code < 0x20 && it != '\n' && it != '\t') }
+        return bad * 100 <= sample.length
+    }
 
     fun looksLikeResume(text: String): Boolean {
         if (text.length < 80) return false
