@@ -24,27 +24,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 object BossClawColors {
-    val Teal = Color(0xFF078A83)
-    val TealDeep = Color(0xFF0B6E68)
+    val Teal = Color(0xFF0B7A75)
+    val TealDeep = Color(0xFF09635F)
     val TealBright = Color(0xFF17B3A6)
     val TealGlow = Color(0xFF7DE7DA)
-    val TealSoft = Color(0xFFD6EFEC)
+    val TealSoft = Color(0xFFD8EFEC)
     val Amber = Color(0xFFC4782E)
     val AmberBright = Color(0xFFE0A467)
-    val AmberSoft = Color(0xFFF6E7D3)
-    val Ink = Color(0xFF14211F)
-    val InkSoft = Color(0xFF3A4A46)
-    val Paper = Color(0xFFF7F6F2)
-    val PaperDeep = Color(0xFFEFECE4)
+    val AmberSoft = Color(0xFFFBEBD8)
+    val AmberText = Color(0xFF8A4F14)
+    val Ink = Color(0xFF1B2422)
+    val InkSoft = Color(0xFF46544F)
+    val Paper = Color(0xFFF6F4EE)
+    val PaperDeep = Color(0xFFEFECE2)
     val Card = Color(0xFFFFFFFF)
-    val Line = Color(0xFFE2DED2)
-    val Muted = Color(0xFF6B7A76)
+    val Line = Color(0xFFE6E1D5)
+    val Muted = Color(0xFF5F6E68)
     val Danger = Color(0xFFB3443A)
     val Success = Color(0xFF2E8B57)
+    val Info = Color(0xFF3E6E8E)
 
-    val DarkBackground = Color(0xFF0E1413)
-    val DarkSurface = Color(0xFF16211F)
-    val DarkSurfaceHigh = Color(0xFF1D2B28)
+    val DarkBackground = Color(0xFF0F1614)
+    val DarkSurface = Color(0xFF17211F)
+    val DarkSurfaceHigh = Color(0xFF1E2A27)
     val DarkLine = Color(0xFF2A3835)
     val DarkText = Color(0xFFE9F1ED)
 }
@@ -53,19 +55,34 @@ private val LightScheme = lightColorScheme(
     primary = BossClawColors.Teal,
     onPrimary = Color.White,
     primaryContainer = BossClawColors.TealSoft,
-    onPrimaryContainer = Color(0xFF043330),
+    onPrimaryContainer = Color(0xFF063B38),
     secondary = BossClawColors.Amber,
     onSecondary = Color.White,
     secondaryContainer = BossClawColors.AmberSoft,
-    onSecondaryContainer = Color(0xFF4A2A0A),
+    onSecondaryContainer = Color(0xFF5C3510),
+    tertiary = BossClawColors.Info,
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFE3EDF3),
+    onTertiaryContainer = Color(0xFF17323F),
     background = BossClawColors.Paper,
     onBackground = BossClawColors.Ink,
     surface = BossClawColors.Card,
     onSurface = BossClawColors.Ink,
-    surfaceVariant = Color(0xFFEFECE3),
+    surfaceVariant = Color(0xFFEFEBE2),
     onSurfaceVariant = BossClawColors.Muted,
     outline = BossClawColors.Line,
-    error = BossClawColors.Danger
+    outlineVariant = Color(0xFFECE7DC),
+    error = BossClawColors.Danger,
+    onError = Color.White,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFFAF8F3),
+    surfaceContainer = Color(0xFFEFEBE2),
+    surfaceContainerHigh = Color(0xFFE7E2D6),
+    surfaceContainerHighest = Color(0xFFDFD9CB),
+    inverseSurface = BossClawColors.Ink,
+    inverseOnSurface = BossClawColors.Paper,
+    inversePrimary = Color(0xFF5FD1C8),
+    scrim = Color.Black
 )
 
 private val DarkScheme = darkColorScheme(
@@ -77,21 +94,36 @@ private val DarkScheme = darkColorScheme(
     onSecondary = Color(0xFF3D2408),
     secondaryContainer = Color(0xFF4B3314),
     onSecondaryContainer = Color(0xFFF7DFC2),
+    tertiary = Color(0xFF8FB6CE),
+    onTertiary = Color(0xFF0B2837),
+    tertiaryContainer = Color(0xFF24404F),
+    onTertiaryContainer = Color(0xFFCFE4EF),
     background = BossClawColors.DarkBackground,
     onBackground = BossClawColors.DarkText,
     surface = BossClawColors.DarkSurface,
     onSurface = BossClawColors.DarkText,
-    surfaceVariant = Color(0xFF1E2B28),
-    onSurfaceVariant = Color(0xFF9EAFAA),
+    surfaceVariant = Color(0xFF1E2A27),
+    onSurfaceVariant = Color(0xFF93A39D),
     outline = BossClawColors.DarkLine,
-    error = Color(0xFFE58C82)
+    outlineVariant = Color(0xFF22302C),
+    error = Color(0xFFE58C82),
+    onError = Color(0xFF3B0A06),
+    surfaceContainerLowest = Color(0xFF0B110F),
+    surfaceContainerLow = Color(0xFF131C1A),
+    surfaceContainer = Color(0xFF1A2523),
+    surfaceContainerHigh = Color(0xFF1E2A27),
+    surfaceContainerHighest = Color(0xFF25332F),
+    inverseSurface = BossClawColors.DarkText,
+    inverseOnSurface = BossClawColors.DarkBackground,
+    inversePrimary = BossClawColors.Teal,
+    scrim = Color.Black
 )
 
 /** 品牌渐变，统一在这里定义，避免各页面色调漂移。 */
 object BossClawGradients {
 
-    private val heroLight = listOf(Color(0xFF0A5B57), Color(0xFF0A837B), Color(0xFF1AA79A))
-    private val heroDark = listOf(Color(0xFF0B2B29), Color(0xFF10544F), Color(0xFF137A72))
+    private val heroLight = listOf(Color(0xFF0C5F5A), Color(0xFF10877F), Color(0xFF37A99E))
+    private val heroDark = listOf(Color(0xFF0B2B29), Color(0xFF10544F), Color(0xFF167C74))
 
     fun hero(dark: Boolean): Brush = Brush.linearGradient(
         colors = if (dark) heroDark else heroLight,
@@ -124,6 +156,7 @@ object BossClawGradients {
 /** 动效规格：统一时长与曲线，让页面切换、数值变化保持同一种节奏。 */
 object BossClawMotion {
     const val FAST = 180
+    const val PRESS = 120
     const val BASE = 300
     const val SLOW = 520
 
@@ -194,10 +227,10 @@ private val AppTypography = Typography(
 
 private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(10.dp),
-    small = RoundedCornerShape(14.dp),
-    medium = RoundedCornerShape(18.dp),
+    small = RoundedCornerShape(16.dp),
+    medium = RoundedCornerShape(20.dp),
     large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(30.dp)
+    extraLarge = RoundedCornerShape(28.dp)
 )
 
 /** 当前主题是否为深色，供渐变、插画等需要手动配色的组件读取。 */

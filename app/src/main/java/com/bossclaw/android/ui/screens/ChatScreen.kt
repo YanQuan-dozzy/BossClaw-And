@@ -21,12 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,7 +48,10 @@ import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.components.BossClawCard
 import com.bossclaw.android.ui.components.EmptyState
 import com.bossclaw.android.ui.components.ScreenHeader
-import com.bossclaw.android.ui.theme.BossClawColors
+import com.bossclaw.android.ui.components.soft.SoftButton
+import com.bossclaw.android.ui.components.soft.SoftTextField
+import com.bossclaw.android.ui.theme.BossClawRadius
+import com.bossclaw.android.ui.theme.BossClawSpacing
 
 @Composable
 fun ChatScreen(viewModel: BossClawViewModel) {
@@ -92,18 +93,18 @@ private fun ConversationList(
     onOpen: (String) -> Unit,
     onScan: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = BossClawSpacing.screen)) {
         ScreenHeader(
             title = "沟通",
             subtitle = "${conversations.size} 个会话 · 自动回复仅处理安全可控的对话"
         ) {
             TextButton(onClick = onScan) {
                 Icon(Icons.Filled.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("扫描消息", modifier = Modifier.padding(start = 4.dp))
+                Text("扫描消息", modifier = Modifier.padding(start = BossClawSpacing.xxs))
             }
         }
         if (conversations.isEmpty()) {
-            BossClawCard(modifier = Modifier.padding(top = 14.dp)) {
+            BossClawCard(modifier = Modifier.padding(top = BossClawSpacing.sm)) {
                 EmptyState(
                     title = "暂无会话",
                     message = "投递成功后，HR 的回复会在这里汇总；也可以点击右上角立即扫描 BOSS 消息"
@@ -112,13 +113,13 @@ private fun ConversationList(
             return@Column
         }
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(top = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxSize().padding(top = BossClawSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(BossClawSpacing.sm)
         ) {
             items(conversations, key = { it.first }) { (jobId, msgs) ->
                 val job = jobMap[jobId]
                 val last = msgs.lastOrNull()
-                BossClawCard(padding = 14.dp) {
+                BossClawCard(padding = BossClawSpacing.md) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -135,7 +136,7 @@ private fun ConversationList(
                                     text = if (last.role == ChatMessageEntity.ROLE_ME) "我：${last.text}" else last.text,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 4.dp),
+                                    modifier = Modifier.padding(top = BossClawSpacing.xxs),
                                     maxLines = 2
                                 )
                             }
@@ -148,15 +149,18 @@ private fun ConversationList(
                             )
                             if (msgs.size > 1) {
                                 Surface(
-                                    color = BossClawColors.Teal.copy(alpha = 0.12f),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.padding(top = 6.dp)
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = CircleShape,
+                                    modifier = Modifier.padding(top = BossClawSpacing.xs)
                                 ) {
                                     Text(
                                         text = "${msgs.size} 条",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = BossClawColors.Teal,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(
+                                            horizontal = BossClawSpacing.xs,
+                                            vertical = 2.dp
+                                        )
                                     )
                                 }
                             }
@@ -164,7 +168,7 @@ private fun ConversationList(
                     }
                     TextButton(
                         onClick = { onOpen(jobId) },
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = BossClawSpacing.xxs)
                     ) { Text("查看对话") }
                 }
             }
@@ -197,12 +201,12 @@ private fun ConversationDetail(
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = BossClawSpacing.screen)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
             }
-            Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
+            Column(modifier = Modifier.weight(1f).padding(start = BossClawSpacing.xxs)) {
                 Text(
                     text = job?.title ?: "会话 $jobId",
                     style = MaterialTheme.typography.titleLarge,
@@ -218,7 +222,10 @@ private fun ConversationDetail(
         }
 
         if (job != null && job.reason.isNotBlank()) {
-            BossClawCard(modifier = Modifier.padding(top = 8.dp), padding = 12.dp) {
+            BossClawCard(
+                modifier = Modifier.padding(top = BossClawSpacing.xs),
+                padding = BossClawSpacing.sm
+            ) {
                 Text(
                     text = job.reason,
                     style = MaterialTheme.typography.bodyMedium,
@@ -229,8 +236,8 @@ private fun ConversationDetail(
 
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).padding(top = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.weight(1f).padding(top = BossClawSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)
         ) {
             items(messages, key = { it.id }) { message -> Bubble(message) }
             item {
@@ -239,7 +246,7 @@ private fun ConversationDetail(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
+                    modifier = Modifier.fillMaxWidth().padding(vertical = BossClawSpacing.sm)
                 )
             }
         }
@@ -275,12 +282,16 @@ private fun ReplyComposer(
     onCopy: () -> Unit,
     onSend: () -> Unit
 ) {
-    BossClawCard(modifier = Modifier.padding(top = 6.dp), padding = 12.dp) {
+    BossClawCard(
+        modifier = Modifier.padding(top = BossClawSpacing.xs),
+        padding = BossClawSpacing.sm
+    ) {
+        val colors = MaterialTheme.colorScheme
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "回复",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = colors.onSurface,
                 modifier = Modifier.weight(1f)
             )
             if (draftLoading) {
@@ -288,8 +299,8 @@ private fun ReplyComposer(
                 Text(
                     text = "AI 正在写草稿",
                     style = MaterialTheme.typography.labelSmall,
-                    color = BossClawColors.Teal,
-                    modifier = Modifier.padding(start = 6.dp)
+                    color = colors.primary,
+                    modifier = Modifier.padding(start = BossClawSpacing.xs)
                 )
             }
         }
@@ -297,20 +308,21 @@ private fun ReplyComposer(
             Text(
                 text = draftError,
                 style = MaterialTheme.typography.labelSmall,
-                color = BossClawColors.Danger,
-                modifier = Modifier.padding(top = 4.dp)
+                color = colors.error,
+                modifier = Modifier.padding(top = BossClawSpacing.xxs)
             )
         }
-        OutlinedTextField(
+        SoftTextField(
             value = value,
             onValueChange = onValueChange,
-            placeholder = { Text("输入回复，或点「AI 帮我回复」生成草稿") },
+            placeholder = "输入回复，或点「AI 帮我回复」生成草稿",
+            singleLine = false,
             minLines = 2,
             maxLines = 4,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xs)
         )
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xxs),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -319,28 +331,20 @@ private fun ReplyComposer(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onCopy, enabled = value.isNotBlank()) { Text("复制") }
-                Button(
+                SoftButton(
+                    text = "发送",
                     onClick = onSend,
                     enabled = canSend && !sending,
-                    modifier = Modifier.padding(start = 4.dp)
-                ) {
-                    if (sending) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        Text("发送")
-                    }
-                }
+                    loading = sending,
+                    modifier = Modifier.padding(start = BossClawSpacing.xxs)
+                )
             }
         }
         Text(
             text = "发送前会先在 BOSS 消息列表定位该岗位的会话；找不到即中止，不会发给其他人",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp)
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(top = BossClawSpacing.xxs)
         )
     }
 }
@@ -358,34 +362,38 @@ private fun Bubble(message: ChatMessageEntity) {
         return
     }
     val mine = message.role == ChatMessageEntity.ROLE_ME
+    val colors = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start
     ) {
         if (!mine) Avatar("HR")
         Surface(
-            color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(
-                topStart = 14.dp,
-                topEnd = 14.dp,
-                bottomStart = if (mine) 14.dp else 4.dp,
-                bottomEnd = if (mine) 4.dp else 14.dp
-            ),
+            color = if (mine) colors.primaryContainer else colors.surfaceVariant,
+            shape = RoundedCornerShape(BossClawRadius.button),
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .padding(start = if (!mine) 8.dp else 0.dp, end = if (mine) 8.dp else 0.dp)
+                .padding(
+                    start = if (!mine) BossClawSpacing.xs else 0.dp,
+                    end = if (mine) BossClawSpacing.xs else 0.dp
+                )
         ) {
-            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Column(
+                modifier = Modifier.padding(
+                    horizontal = BossClawSpacing.sm,
+                    vertical = BossClawSpacing.xs
+                )
+            ) {
                 Text(
                     text = message.text,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = if (mine) colors.onPrimaryContainer else colors.onSurface
                 )
                 Text(
                     text = TimeUtils.formatTime(message.timestamp) + if (!message.delivered) " · 未送达" else "",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 3.dp)
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = BossClawSpacing.xxs)
                 )
             }
         }
@@ -395,17 +403,22 @@ private fun Bubble(message: ChatMessageEntity) {
 
 @Composable
 private fun Avatar(label: String) {
+    val colors = MaterialTheme.colorScheme
+    val mine = label == "我"
     Box(
         modifier = Modifier
-            .size(28.dp)
-            .background(if (label == "我") BossClawColors.Teal else BossClawColors.Amber, CircleShape),
+            .size(32.dp)
+            .background(
+                if (mine) colors.primary else colors.secondaryContainer,
+                CircleShape
+            ),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
-            color = androidx.compose.ui.graphics.Color.White
+            color = if (mine) colors.onPrimary else colors.onSecondaryContainer
         )
     }
 }

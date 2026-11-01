@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +37,8 @@ import com.bossclaw.android.ui.components.StatTile
 import com.bossclaw.android.ui.components.tokenLabel
 import com.bossclaw.android.ui.theme.BossClawColors
 import com.bossclaw.android.ui.theme.BossClawMotion
+import com.bossclaw.android.ui.theme.BossClawSpacing
+import com.bossclaw.android.ui.theme.LocalBossClawDark
 
 @Composable
 fun InsightsScreen(viewModel: BossClawViewModel, onOpenRecords: () -> Unit) {
@@ -48,8 +50,13 @@ fun InsightsScreen(viewModel: BossClawViewModel, onOpenRecords: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 26.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(
+                start = BossClawSpacing.screen,
+                end = BossClawSpacing.screen,
+                top = BossClawSpacing.xxs,
+                bottom = BossClawSpacing.xl
+            ),
+        verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
             title = "数据看板",
@@ -74,8 +81,11 @@ fun InsightsScreen(viewModel: BossClawViewModel, onOpenRecords: () -> Unit) {
 
 @Composable
 private fun StatsGrid(stats: DailyStats, funnel: DailyStats) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    val dark = LocalBossClawDark.current
+    val colors = MaterialTheme.colorScheme
+    val successColor = if (dark) Color(0xFF6FD69B) else BossClawColors.Success
+    Column(verticalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)) {
             StatTile(
                 label = "今日发现",
                 value = "0",
@@ -86,35 +96,36 @@ private fun StatsGrid(stats: DailyStats, funnel: DailyStats) {
                 label = "今日投递",
                 value = "0",
                 numericValue = stats.delivered,
-                accent = BossClawColors.Amber,
+                accent = colors.secondary,
                 modifier = Modifier.weight(1f)
             )
             StatTile(
                 label = "今日回复",
                 value = "0",
                 numericValue = stats.replied,
-                accent = BossClawColors.Success,
+                accent = successColor,
                 modifier = Modifier.weight(1f)
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)) {
             StatTile(
                 label = "待确认",
                 value = "0",
                 numericValue = funnel.matched,
+                accent = colors.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
             StatTile(
                 label = "已约面",
                 value = "0",
                 numericValue = funnel.interview,
-                accent = BossClawColors.Amber,
+                accent = colors.secondary,
                 modifier = Modifier.weight(1f)
             )
             StatTile(
                 label = "今日 Token",
                 value = tokenLabel(stats.tokensToday),
-                accent = BossClawColors.Muted,
+                accent = colors.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -144,12 +155,15 @@ private fun FunnelCard(funnel: DailyStats, onOpenRecords: () -> Unit) {
             TextButton(onClick = onOpenRecords) { Text("记录") }
         }
         val total = funnel.discovered.coerceAtLeast(1)
-        FunnelRow("发现", funnel.discovered, total, BossClawColors.Muted)
-        FunnelRow("过滤", funnel.filtered, total, BossClawColors.Amber)
-        FunnelRow("匹配", funnel.matched, total, BossClawColors.Teal)
-        FunnelRow("投递", funnel.delivered, total, BossClawColors.TealDeep)
-        FunnelRow("回复", funnel.replied, total, BossClawColors.Success)
-        FunnelRow("约面", funnel.interview, total, BossClawColors.Amber)
+        val colors = MaterialTheme.colorScheme
+        val successColor =
+            if (LocalBossClawDark.current) Color(0xFF6FD69B) else BossClawColors.Success
+        FunnelRow("发现", funnel.discovered, total, colors.onSurfaceVariant)
+        FunnelRow("过滤", funnel.filtered, total, colors.secondary)
+        FunnelRow("匹配", funnel.matched, total, colors.primary)
+        FunnelRow("投递", funnel.delivered, total, colors.primary)
+        FunnelRow("回复", funnel.replied, total, successColor)
+        FunnelRow("约面", funnel.interview, total, colors.secondary)
     }
 }
 
@@ -162,27 +176,27 @@ private fun FunnelRow(label: String, value: Int, total: Int, color: Color) {
         label = "funnel-row"
     )
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 9.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(end = 10.dp)
+            modifier = Modifier.padding(end = BossClawSpacing.xs)
         )
         Box(
             modifier = Modifier
                 .weight(1f)
                 .height(7.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction.coerceAtLeast(0.001f))
                     .height(7.dp)
-                    .clip(RoundedCornerShape(4.dp))
+                    .clip(CircleShape)
                     .background(color)
             )
         }
@@ -190,7 +204,7 @@ private fun FunnelRow(label: String, value: Int, total: Int, color: Color) {
             text = value.toString(),
             style = MaterialTheme.typography.labelLarge,
             color = color,
-            modifier = Modifier.padding(start = 10.dp)
+            modifier = Modifier.padding(start = BossClawSpacing.xs)
         )
     }
 }
@@ -229,7 +243,7 @@ private fun RecentActivity(logs: List<LogLine>, onOpenRecords: () -> Unit) {
                 text = "最后更新 ${TimeUtils.formatTime(recent.first().timestamp)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.xxs)
             )
         }
     }

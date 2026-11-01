@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -151,19 +152,28 @@ class FloatingHudService : Service() {
         windowManager.addView(ball, params)
     }
 
-    private fun ballBackground(current: EngineState): GradientDrawable =
-        GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            when (current) {
-                EngineState.RUNNING -> intArrayOf(Color.parseColor("#078A83"), Color.parseColor("#0B6E68"))
-                EngineState.PAUSED -> intArrayOf(Color.parseColor("#C4782E"), Color.parseColor("#9A5A1E"))
-                EngineState.RISK_STOP -> intArrayOf(Color.parseColor("#B3443A"), Color.parseColor("#8C2E27"))
-                EngineState.IDLE -> intArrayOf(Color.parseColor("#42514E"), Color.parseColor("#2C3E3A"))
-            }
-        ).apply {
-            shape = GradientDrawable.OVAL
-            setStroke(dp(2), Color.parseColor("#E8F0EC"))
+    private fun ballBackground(current: EngineState): GradientDrawable {
+        val night = isNight()
+        val color = when (current) {
+            EngineState.RUNNING -> if (night) "#5FD1C8" else "#0B7A75"
+            EngineState.PAUSED -> if (night) "#E0A467" else "#C4782E"
+            EngineState.RISK_STOP -> if (night) "#E58C82" else "#B3443A"
+            EngineState.IDLE -> if (night) "#1E2A27" else "#5F6E68"
         }
+        return GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(Color.parseColor(color))
+            // 柔和描边替代原来的硬白圈，深浅主题各用一套。
+            setStroke(
+                dp(1),
+                if (night) Color.parseColor("#2A3835") else Color.argb(120, 255, 255, 255)
+            )
+        }
+    }
+
+    private fun isNight(): Boolean =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
 
     private fun attachBallTouch(view: View, params: WindowManager.LayoutParams) {
         var initialX = 0
@@ -231,15 +241,24 @@ class FloatingHudService : Service() {
             syncPanelPosition()
             return
         }
+        val night = isNight()
+        val surface = if (night) "#17211F" else "#FFFFFF"
+        val onSurface = if (night) "#E9F1ED" else "#1B2422"
+        val muted = if (night) "#93A39D" else "#5F6E68"
+        val softTrack = if (night) "#1E2A27" else "#E7E2D6"
+        val primary = if (night) "#5FD1C8" else "#0B7A75"
+        val onPrimary = if (night) "#00312D" else "#FFFFFF"
+        val danger = if (night) "#E58C82" else "#B3443A"
+        val onDanger = if (night) "#3B0A06" else "#FFFFFF"
+        val logColor = if (night) "#B6C4BF" else "#46544F"
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#14201E"))
-                cornerRadius = dp(22).toFloat()
-                setStroke(dp(1), Color.parseColor("#2C3E3A"))
+                setColor(Color.parseColor(surface))
+                cornerRadius = dp(24).toFloat()
             }
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            elevation = dp(10).toFloat()
+            setPadding(dp(20), dp(16), dp(20), dp(16))
+            elevation = dp(12).toFloat()
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -248,7 +267,7 @@ class FloatingHudService : Service() {
         header.addView(
             TextView(this).apply {
                 text = "BossClaw 控制台"
-                setTextColor(Color.parseColor("#E8F0EC"))
+                setTextColor(Color.parseColor(onSurface))
                 textSize = 15f
                 typeface = Typeface.DEFAULT_BOLD
             },
@@ -257,7 +276,7 @@ class FloatingHudService : Service() {
         header.addView(
             TextView(this).apply {
                 text = "收起"
-                setTextColor(Color.parseColor("#8FA8A3"))
+                setTextColor(Color.parseColor(muted))
                 textSize = 12f
                 setPadding(dp(10), dp(2), dp(2), dp(2))
                 setOnClickListener { hidePanel() }
@@ -265,25 +284,29 @@ class FloatingHudService : Service() {
         )
         panelStatus = TextView(this).apply {
             text = "状态：${state.label}"
-            setTextColor(Color.parseColor("#7FD9CF"))
+            setTextColor(Color.parseColor(primary))
             textSize = 12f
             setPadding(0, dp(4), 0, 0)
         }
         panelTarget = TextView(this).apply {
             text = "目标：—"
-            setTextColor(Color.parseColor("#A9B8B4"))
+            setTextColor(Color.parseColor(muted))
             textSize = 12f
             setPadding(0, dp(3), 0, 0)
         }
         panelLogs = TextView(this).apply {
             text = "等待日志…"
-            setTextColor(Color.parseColor("#C9D6D2"))
+            setTextColor(Color.parseColor(logColor))
             textSize = 10.5f
             typeface = Typeface.MONOSPACE
             maxLines = 5
             setPadding(0, dp(8), 0, dp(8))
         }
-        pauseButton = actionButton(if (state == EngineState.RUNNING) "暂停" else "继续", "#078A83").also {
+        pauseButton = actionButton(
+            if (state == EngineState.RUNNING) "暂停" else "继续",
+            primary,
+            onPrimary
+        ).also {
             it.setOnClickListener {
                 if (state == EngineState.RUNNING) {
                     BossClawApp.graph.orchestrator.pause()
@@ -292,31 +315,31 @@ class FloatingHudService : Service() {
                 }
             }
         }
-        val startButton = actionButton("开始巡查", "#0B6E68").also { button ->
+        val startButton = actionButton("开始巡查", primary, onPrimary).also { button ->
             button.setOnClickListener {
                 if (!BossClawApp.graph.orchestrator.start(false)) {
                     toast("启动条件未满足，请检查权限与模型配置")
                 }
             }
         }
-        val inboxButton = actionButton("处理消息", "#2C3E3A").also { button ->
+        val inboxButton = actionButton("处理消息", softTrack, onSurface).also { button ->
             button.setOnClickListener {
                 if (!BossClawApp.graph.orchestrator.runInboxOnce()) {
                     toast("无法扫描消息，请检查无障碍与模型配置")
                 }
             }
         }
-        val emergencyButton = actionButton("急停", "#B3443A").also { button ->
+        val emergencyButton = actionButton("急停", danger, onDanger).also { button ->
             button.setOnClickListener {
                 BossClawApp.graph.orchestrator.emergencyStop("用户从悬浮球紧急停止")
             }
         }
-        val openButton = actionButton("打开应用", "#2C3E3A").also { button ->
+        val openButton = actionButton("打开应用", softTrack, onSurface).also { button ->
             button.setOnClickListener {
                 startActivity(Intent(this@FloatingHudService, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
         }
-        val exitButton = actionButton("收起悬浮球", "#2C3E3A").also { button ->
+        val exitButton = actionButton("收起悬浮球", softTrack, onSurface).also { button ->
             button.setOnClickListener { closeHud() }
         }
 
@@ -365,7 +388,7 @@ class FloatingHudService : Service() {
         } else {
             params.x - panelWidth - dp(10)
         }
-        val y = params.y.coerceIn(0, max(0, screenHeight() - dp(340)))
+        val y = params.y.coerceIn(0, max(0, screenHeight() - dp(380)))
         return x.coerceIn(0, max(0, screenWidth() - panelWidth)) to y
     }
 
@@ -416,15 +439,16 @@ class FloatingHudService : Service() {
             addView(right, actionParams())
         }
 
-    private fun actionButton(text: String, color: String): TextView = TextView(this).apply {
+    private fun actionButton(text: String, bgColor: String, textColor: String): TextView = TextView(this).apply {
         this.text = text
-        setTextColor(Color.WHITE)
+        setTextColor(Color.parseColor(textColor))
         textSize = 12f
         gravity = Gravity.CENTER
-        setPadding(dp(12), dp(8), dp(12), dp(8))
+        setPadding(dp(12), dp(10), dp(12), dp(10))
+        elevation = dp(2).toFloat()
         background = GradientDrawable().apply {
-            setColor(Color.parseColor(color))
-            cornerRadius = dp(14).toFloat()
+            setColor(Color.parseColor(bgColor))
+            cornerRadius = dp(20).toFloat()
         }
     }
 
@@ -468,6 +492,6 @@ class FloatingHudService : Service() {
         private const val NOTIFICATION_ID = 2001
         private const val BALL_SIZE_DP = 54
         private const val BALL_INNER_DP = 40
-        private const val PANEL_WIDTH_DP = 226
+        private const val PANEL_WIDTH_DP = 248
     }
 }

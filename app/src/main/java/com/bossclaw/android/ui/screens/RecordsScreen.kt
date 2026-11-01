@@ -30,7 +30,7 @@ import com.bossclaw.android.ui.components.ScreenHeader
 import com.bossclaw.android.ui.components.StatTile
 import com.bossclaw.android.ui.components.levelColor
 import com.bossclaw.android.ui.components.tokenLabel
-import com.bossclaw.android.ui.theme.BossClawColors
+import com.bossclaw.android.ui.theme.BossClawSpacing
 
 @Composable
 fun RecordsScreen(viewModel: BossClawViewModel) {
@@ -39,8 +39,8 @@ fun RecordsScreen(viewModel: BossClawViewModel) {
     val funnel by viewModel.funnel.collectAsStateWithLifecycle()
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = BossClawSpacing.screen),
+        verticalArrangement = Arrangement.spacedBy(BossClawSpacing.sm)
     ) {
         item {
             ScreenHeader(
@@ -49,7 +49,7 @@ fun RecordsScreen(viewModel: BossClawViewModel) {
             )
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)) {
                 StatTile(
                     label = "累计发现",
                     value = funnel.discovered.toString(),
@@ -58,13 +58,13 @@ fun RecordsScreen(viewModel: BossClawViewModel) {
                 StatTile(
                     label = "累计投递",
                     value = funnel.delivered.toString(),
-                    accent = BossClawColors.Amber,
+                    accent = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.weight(1f)
                 )
                 StatTile(
                     label = "今日 Token",
                     value = tokenLabel(stats.tokensToday),
-                    accent = BossClawColors.Muted,
+                    accent = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -79,14 +79,14 @@ fun RecordsScreen(viewModel: BossClawViewModel) {
                 }
             }
         } else {
-            items(logs, key = { it.id }) { log -> LogRow(log) }
+            items(logs, key = { it.id }, contentType = { it.level }) { log -> LogRow(log) }
         }
         item {
             Text(
                 text = "日志仅保存在本机，不包含简历全文；模型调用记录包含提示词摘要，请留意隐私",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 14.dp)
+                modifier = Modifier.padding(vertical = BossClawSpacing.md)
             )
         }
     }
@@ -94,17 +94,17 @@ fun RecordsScreen(viewModel: BossClawViewModel) {
 
 @Composable
 private fun LogRow(log: LogEntity) {
-    BossClawCard(padding = 14.dp) {
+    BossClawCard(padding = BossClawSpacing.md) {
         Row(verticalAlignment = Alignment.Top) {
             Box(
                 modifier = Modifier
-                    .padding(top = 5.dp)
+                    .padding(top = BossClawSpacing.xxs)
                     .size(7.dp)
                     .clip(CircleShape)
                     .background(levelColor(log.level))
             )
             Row(
-                modifier = Modifier.weight(1f).padding(start = 9.dp),
+                modifier = Modifier.weight(1f).padding(start = BossClawSpacing.xs),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
@@ -119,7 +119,7 @@ private fun LogRow(log: LogEntity) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Normal,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = BossClawSpacing.xs)
                 )
             }
         }

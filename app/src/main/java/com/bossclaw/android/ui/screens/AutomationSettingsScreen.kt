@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -30,6 +29,8 @@ import com.bossclaw.android.ui.components.BossClawDropdown
 import com.bossclaw.android.ui.components.BossClawNumberField
 import com.bossclaw.android.ui.components.ScreenHeader
 import com.bossclaw.android.ui.components.SettingSwitchRow
+import com.bossclaw.android.ui.components.soft.SoftTextField
+import com.bossclaw.android.ui.theme.BossClawSpacing
 import kotlin.math.roundToInt
 
 @Composable
@@ -40,8 +41,13 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 26.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(
+                start = BossClawSpacing.screen,
+                end = BossClawSpacing.screen,
+                top = BossClawSpacing.xxs,
+                bottom = BossClawSpacing.md
+            ),
+        verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
             title = "自动化边界",
@@ -56,7 +62,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
             )
             RunMode.entries.forEach { mode ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xxs),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
@@ -82,7 +88,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 text = "节奏",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 12.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.sm)
             )
             BossClawDropdown(
                 label = "岗位间隔节奏",
@@ -91,7 +97,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 onSelect = { raw ->
                     viewModel.updateSettings { it.copy(speed = Speed.from(raw)) }
                 },
-                modifier = Modifier.padding(top = 6.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.xs)
             )
         }
 
@@ -137,7 +143,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 text = "开启后翻页只向下加载，不自动切换到「最新」流；关闭时按普通职位列表采集",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.xxs)
             )
         }
 
@@ -151,27 +157,24 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 text = "填写你愿意提供给 HR 的真实信息，AI 跟聊与手动回复都会引用；留空则不承诺这类内容",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.xxs)
             )
-            OutlinedTextField(
+            SoftTextField(
                 value = settings.communicationInfo,
                 onValueChange = { value ->
                     viewModel.updateSettings { it.copy(communicationInfo = value) }
                 },
-                placeholder = {
-                    Text(
-                        "例：\n薪资期望：20K 左右，可面议\n可面试时间：本周工作日晚上或周末\n可到岗时间：一个月内"
-                    )
-                },
+                placeholder = "例：\n薪资期望：20K 左右，可面议\n可面试时间：本周工作日晚上或周末\n可到岗时间：一个月内",
+                singleLine = false,
                 minLines = 4,
                 maxLines = 8,
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.sm)
             )
             Text(
                 text = "只写真实信息：AI 不会补充未填写的薪资、到岗或面试安排",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.xs)
             )
         }
 
@@ -186,7 +189,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                     "城市、行业、公司规模、融资等平台筛选仍请在 BOSS 顶部「实习 / 筛选」里手动点好，软件不代点平台按钮",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.xxs)
             )
             BossClawNumberField(
                 value = settings.internshipMinMonths,
@@ -198,7 +201,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 minValue = 0,
                 maxValue = 60,
                 placeholder = "如 3",
-                modifier = Modifier.padding(top = 10.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.sm)
             )
             BossClawNumberField(
                 value = settings.weeklyMinDays,
@@ -210,13 +213,13 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 minValue = 0,
                 maxValue = 7,
                 placeholder = "如 4",
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.sm)
             )
             Text(
                 text = "HR 活跃度",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 10.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.sm)
             )
             BossClawDropdown(
                 label = "BOSS活跃状态",
@@ -225,7 +228,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 onSelect = { raw ->
                     viewModel.updateSettings { it.copy(hrActivityFilter = raw) }
                 },
-                modifier = Modifier.padding(top = 6.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.xs)
             )
             BossClawDropdown(
                 label = "学历要求",
@@ -235,7 +238,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                     viewModel.updateSettings { it.copy(degreeRequirement = raw) }
                 },
                 hint = "跟随画像：岗位要求高于你的学历才跳过；指定档位时，高于该档的岗位直接跳过",
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.xs)
             )
             BossClawDropdown(
                 label = "经验要求",
@@ -245,7 +248,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                     viewModel.updateSettings { it.copy(experienceCeiling = raw) }
                 },
                 hint = "高于所选档位经验要求的岗位跳过；不限=不做经验过滤",
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = BossClawSpacing.xs)
             )
 
             SettingSwitchRow(
@@ -333,7 +336,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                     minValue = 0,
                     maxValue = 500,
                     placeholder = "如 8",
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(top = BossClawSpacing.sm)
                 )
             }
         }
@@ -353,14 +356,15 @@ private fun SettingInput(
     value: String,
     onValueChange: (String) -> Unit
 ) {
-    OutlinedTextField(
+    SoftTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = { Text(hint) },
+        label = label,
+        placeholder = hint,
+        singleLine = false,
         minLines = 1,
         maxLines = 3,
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+        modifier = Modifier.padding(top = BossClawSpacing.xs)
     )
 }
 
@@ -378,12 +382,16 @@ private fun SliderRow(
     unit: String,
     onValueChange: (Int) -> Unit
 ) {
-    Column(modifier = Modifier.padding(top = 10.dp)) {
+    Column(modifier = Modifier.padding(top = BossClawSpacing.sm)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = BossClawSpacing.sm)
+            ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyMedium,
@@ -393,7 +401,7 @@ private fun SliderRow(
                     text = hint,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
+                    modifier = Modifier.padding(top = BossClawSpacing.xxs)
                 )
             }
             BossClawNumberField(

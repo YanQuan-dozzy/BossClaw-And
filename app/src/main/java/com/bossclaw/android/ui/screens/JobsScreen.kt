@@ -14,9 +14,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,7 +46,11 @@ import com.bossclaw.android.ui.components.FitChip
 import com.bossclaw.android.ui.components.ScreenHeader
 import com.bossclaw.android.ui.components.StatusPill
 import com.bossclaw.android.ui.components.fitColor
+import com.bossclaw.android.ui.components.soft.SoftChip
 import com.bossclaw.android.ui.theme.BossClawColors
+import com.bossclaw.android.ui.theme.BossClawRadius
+import com.bossclaw.android.ui.theme.BossClawSpacing
+import com.bossclaw.android.ui.theme.LocalBossClawDark
 
 private enum class JobFilter(val label: String) {
     ALL("全部"),
@@ -79,8 +83,8 @@ fun JobsScreen(viewModel: BossClawViewModel) {
     val visible = remember(jobs, filter) { jobs.filter { filter.match(it) } }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = BossClawSpacing.screen),
+        verticalArrangement = Arrangement.spacedBy(BossClawSpacing.sm)
     ) {
         item {
             ScreenHeader(
@@ -89,12 +93,12 @@ fun JobsScreen(viewModel: BossClawViewModel) {
             )
         }
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)) {
                 items(JobFilter.entries.toList()) { entry ->
-                    FilterChip(
+                    SoftChip(
+                        text = entry.label,
                         selected = filter == entry,
-                        onClick = { filter = entry },
-                        label = { Text(entry.label) }
+                        onClick = { filter = entry }
                     )
                 }
             }
@@ -109,7 +113,7 @@ fun JobsScreen(viewModel: BossClawViewModel) {
                 }
             }
         }
-        items(visible, key = { it.jobId }) { job ->
+        items(visible, key = { it.jobId }, contentType = { it.status }) { job ->
             JobCard(
                 job = job,
                 busy = busyJobId == job.jobId,
@@ -124,7 +128,7 @@ fun JobsScreen(viewModel: BossClawViewModel) {
                 text = "提示：开场白超过 250 字会被平台限制，BossClaw 已自动压缩并校验事实边界",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 12.dp)
+                modifier = Modifier.padding(vertical = BossClawSpacing.sm)
             )
         }
     }
@@ -140,6 +144,8 @@ private fun JobCard(
     onIgnore: () -> Unit,
     onBlacklist: () -> Unit
 ) {
+    val dark = LocalBossClawDark.current
+    val colors = MaterialTheme.colorScheme
     BossClawCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -156,7 +162,7 @@ private fun JobCard(
                     text = "${job.company} · ${job.city.ifBlank { "城市未知" }}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 3.dp)
+                    modifier = Modifier.padding(top = BossClawSpacing.xxs)
                 )
                 val meta = listOfNotNull(
                     job.salaryText.takeIf { it.isNotBlank() },
@@ -168,17 +174,17 @@ private fun JobCard(
                         text = meta,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = BossClawSpacing.xxs)
                     )
                 }
             }
-            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 8.dp)) {
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = BossClawSpacing.xs)) {
                 FitChip(job.fit())
                 Text(
                     text = "${job.score} 分",
                     style = MaterialTheme.typography.labelLarge,
                     color = fitColor(job.fit()),
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = BossClawSpacing.xxs)
                 )
             }
         }
@@ -187,8 +193,8 @@ private fun JobCard(
             Text(
                 text = job.reason,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 10.dp)
+                color = colors.onSurface,
+                modifier = Modifier.padding(top = BossClawSpacing.sm)
             )
         }
 
@@ -197,8 +203,8 @@ private fun JobCard(
             Text(
                 text = highlights.take(3).joinToString(" · ") { "✓ $it" },
                 style = MaterialTheme.typography.labelSmall,
-                color = BossClawColors.Success,
-                modifier = Modifier.padding(top = 6.dp)
+                color = if (dark) Color(0xFF6FD69B) else BossClawColors.Success,
+                modifier = Modifier.padding(top = BossClawSpacing.xs)
             )
         }
         val risks = job.risks()
@@ -206,51 +212,51 @@ private fun JobCard(
             Text(
                 text = risks.take(2).joinToString(" · ") { "! $it" },
                 style = MaterialTheme.typography.labelSmall,
-                color = BossClawColors.Danger,
-                modifier = Modifier.padding(top = 4.dp)
+                color = if (dark) Color(0xFFE58C82) else BossClawColors.Danger,
+                modifier = Modifier.padding(top = BossClawSpacing.xxs)
             )
         }
 
         if (job.greeting.isNotBlank()) {
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                color = colors.primaryContainer.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(BossClawRadius.control),
+                modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.sm)
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(BossClawSpacing.sm)) {
                     Text(
                         text = "开场白草稿",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Medium,
-                        color = BossClawColors.TealDeep
+                        color = colors.onPrimaryContainer
                     )
                     Text(
                         text = job.greeting,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 3.dp)
+                        color = colors.onSurface,
+                        modifier = Modifier.padding(top = BossClawSpacing.xxs)
                     )
                 }
             }
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.sm),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            StatusPill(text = job.statusLabel(), color = statusColor(job))
+            StatusPill(text = job.statusLabel(), color = statusColor(job, dark))
             Text(
                 text = job.hrActive.ifBlank { "HR 活跃度未知" },
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = colors.onSurfaceVariant
             )
         }
 
         FlowRow(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xxs),
+            horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.xxs),
+            verticalArrangement = Arrangement.spacedBy(BossClawSpacing.xxs)
         ) {
             TextButton(onClick = onGenerate, enabled = !busy) {
                 if (busy) {
@@ -264,21 +270,31 @@ private fun JobCard(
                 Text(if (job.greeting.isBlank()) "生成开场白" else "重新生成")
             }
             if (job.greeting.isNotBlank()) {
-                TextButton(onClick = onCopy) { Text("复制") }
+                TextButton(
+                    onClick = onCopy,
+                    colors = ButtonDefaults.textButtonColors(contentColor = colors.onSurfaceVariant)
+                ) { Text("复制") }
             }
-            TextButton(onClick = onIgnore) { Text("忽略") }
+            TextButton(
+                onClick = onIgnore,
+                colors = ButtonDefaults.textButtonColors(contentColor = colors.onSurfaceVariant)
+            ) { Text("忽略") }
             TextButton(
                 onClick = onBlacklist,
-                colors = ButtonDefaults.textButtonColors(contentColor = BossClawColors.Danger)
+                colors = ButtonDefaults.textButtonColors(contentColor = colors.error)
             ) { Text("拉黑") }
         }
     }
 }
 
-private fun statusColor(job: JobEntity): Color = when {
-    job.status == JobEntity.STATUS_INTERVIEW -> BossClawColors.Amber
-    job.status == JobEntity.STATUS_REPLIED -> BossClawColors.Success
-    job.status == JobEntity.STATUS_DELIVERED -> BossClawColors.Teal
-    job.status == JobEntity.STATUS_FILTERED || job.status == JobEntity.STATUS_CLOSED -> BossClawColors.Muted
+private fun statusColor(job: JobEntity, dark: Boolean): Color = when {
+    job.status == JobEntity.STATUS_INTERVIEW ->
+        if (dark) Color(0xFFE8B45C) else BossClawColors.Amber
+    job.status == JobEntity.STATUS_REPLIED ->
+        if (dark) Color(0xFF6FD69B) else BossClawColors.Success
+    job.status == JobEntity.STATUS_DELIVERED ->
+        if (dark) Color(0xFF5FD1C8) else BossClawColors.Teal
+    job.status == JobEntity.STATUS_FILTERED || job.status == JobEntity.STATUS_CLOSED ->
+        if (dark) Color(0xFF93A39D) else BossClawColors.Muted
     else -> fitColor(job.fit())
 }

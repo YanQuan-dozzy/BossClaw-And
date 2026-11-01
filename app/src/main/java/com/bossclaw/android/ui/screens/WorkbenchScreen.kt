@@ -9,7 +9,6 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -33,12 +32,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,11 +65,18 @@ import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.PermissionSnapshot
 import com.bossclaw.android.ui.components.BossClawCard
 import com.bossclaw.android.ui.components.StatusCell
+import com.bossclaw.android.ui.components.soft.SoftButton
+import com.bossclaw.android.ui.components.soft.SoftButtonVariant
+import com.bossclaw.android.ui.components.soft.SoftIconBadge
 import com.bossclaw.android.ui.navigation.Routes
 import com.bossclaw.android.ui.theme.BossClawColors
-import com.bossclaw.android.ui.theme.BossClawGradients
+import com.bossclaw.android.ui.theme.BossClawElevation
 import com.bossclaw.android.ui.theme.BossClawMotion
+import com.bossclaw.android.ui.theme.BossClawRadius
+import com.bossclaw.android.ui.theme.BossClawShadow
+import com.bossclaw.android.ui.theme.BossClawSpacing
 import com.bossclaw.android.ui.theme.LocalBossClawDark
+import com.bossclaw.android.ui.theme.softShadow
 import kotlinx.coroutines.delay
 
 /**
@@ -96,8 +98,13 @@ fun WorkbenchScreen(viewModel: BossClawViewModel, onNavigate: (String) -> Unit) 
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 26.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(
+                start = BossClawSpacing.screen,
+                end = BossClawSpacing.screen,
+                top = BossClawSpacing.xxs,
+                bottom = BossClawSpacing.xl
+            ),
+        verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         Reveal(index = 0) {
             HeroEngineCard(
@@ -182,26 +189,33 @@ private fun HeroEngineCard(
     onEmergency: () -> Unit
 ) {
     val dark = LocalBossClawDark.current
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(BossClawRadius.hero)
     val stateColor = when (state) {
-        EngineState.RUNNING -> Color(0xFF9CF2E7)
-        EngineState.PAUSED -> Color(0xFFFFD79A)
-        EngineState.RISK_STOP -> Color(0xFFFFB4A9)
-        EngineState.IDLE -> Color(0xFFD7E4E1)
+        EngineState.RUNNING -> if (dark) Color(0xFF6FD69B) else BossClawColors.Success
+        EngineState.PAUSED -> if (dark) Color(0xFFE8B45C) else BossClawColors.AmberText
+        EngineState.RISK_STOP -> if (dark) Color(0xFFE58C82) else BossClawColors.Danger
+        EngineState.IDLE -> if (dark) Color(0xFF93A39D) else BossClawColors.Muted
     }
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(BossClawGradients.hero(dark))
+            .softShadow(BossClawElevation.raised, shape, BossClawShadow.brand(dark))
+            .background(colors.surface, shape)
+            .clip(shape)
     ) {
-        RadarBackdrop(modifier = Modifier.matchParentSize())
-        // 顶部一层极淡的白色微光，加强渐变面的层次，不改变原有可读性。
+        // 右上角柔和主色光晕，替代原来的高饱和渐变底。
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(BossClawGradients.sheen())
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(colors.primary.copy(alpha = 0.10f), Color.Transparent)
+                    )
+                )
         )
-        Column(modifier = Modifier.padding(22.dp)) {
+        RadarBackdrop(tint = colors.primary, modifier = Modifier.matchParentSize())
+        Column(modifier = Modifier.padding(BossClawSpacing.xl)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -210,11 +224,11 @@ private fun HeroEngineCard(
                 Text(
                     text = "巡查引擎",
                     style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 2.sp),
-                    color = Color.White.copy(alpha = 0.7f)
+                    color = colors.onSurfaceVariant
                 )
                 Surface(
-                    color = Color.White.copy(alpha = 0.14f),
-                    shape = RoundedCornerShape(10.dp)
+                    color = colors.surfaceContainer,
+                    shape = CircleShape
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
@@ -224,14 +238,18 @@ private fun HeroEngineCard(
                             modifier = Modifier
                                 .size(6.dp)
                                 .background(
-                                    if (connected) Color(0xFF9CF2E7) else Color(0xFFFFC9C4),
+                                    if (connected) {
+                                        if (dark) Color(0xFF6FD69B) else BossClawColors.Success
+                                    } else {
+                                        if (dark) Color(0xFFE58C82) else BossClawColors.Danger
+                                    },
                                     CircleShape
                                 )
                         )
                         Text(
                             text = if (connected) "无障碍已连接" else "无障碍未连接",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.92f),
+                            color = colors.onSurfaceVariant,
                             modifier = Modifier.padding(start = 6.dp)
                         )
                     }
@@ -246,7 +264,7 @@ private fun HeroEngineCard(
                 Text(
                     text = state.label,
                     style = MaterialTheme.typography.displaySmall,
-                    color = Color.White,
+                    color = stateColor,
                     modifier = Modifier.padding(start = 10.dp)
                 )
             }
@@ -254,7 +272,7 @@ private fun HeroEngineCard(
             Text(
                 text = "场景：$sceneText",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.78f),
+                color = colors.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp)
             )
             if (target.isNotBlank()) {
@@ -262,7 +280,7 @@ private fun HeroEngineCard(
                     text = "正在处理 · $target",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White,
+                    color = colors.onSurface,
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
@@ -270,19 +288,18 @@ private fun HeroEngineCard(
             QuotaBar(
                 delivered = delivered,
                 limit = dailyLimit,
-                dark = dark,
                 modifier = Modifier.padding(top = 18.dp)
             )
             Text(
                 text = "$runModeLabel · $runModeHint",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.68f),
+                color = colors.onSurfaceVariant,
                 modifier = Modifier.padding(top = 9.dp)
             )
 
             Row(
                 modifier = Modifier.padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 when (state) {
@@ -291,12 +308,14 @@ private fun HeroEngineCard(
                             text = "暂停",
                             icon = Icons.Filled.Pause,
                             primary = true,
+                            modifier = Modifier.weight(1f),
                             onClick = onPause
                         )
                         HeroButton(
                             text = "停止",
                             icon = Icons.Filled.Stop,
                             primary = false,
+                            modifier = Modifier.weight(1f),
                             onClick = onStop
                         )
                     }
@@ -306,12 +325,14 @@ private fun HeroEngineCard(
                             text = "继续",
                             icon = Icons.Filled.PlayArrow,
                             primary = true,
+                            modifier = Modifier.weight(1f),
                             onClick = onResume
                         )
                         HeroButton(
                             text = "停止",
                             icon = Icons.Filled.Stop,
                             primary = false,
+                            modifier = Modifier.weight(1f),
                             onClick = onStop
                         )
                     }
@@ -321,12 +342,14 @@ private fun HeroEngineCard(
                             text = "开始巡查",
                             icon = Icons.Filled.PlayArrow,
                             primary = true,
+                            modifier = Modifier.weight(1f),
                             onClick = onStart
                         )
                         HeroButton(
                             text = "试跑一轮",
                             icon = Icons.Filled.Refresh,
                             primary = false,
+                            modifier = Modifier.weight(1f),
                             onClick = onStartOnce
                         )
                     }
@@ -344,13 +367,13 @@ private fun HeroEngineCard(
                     Icon(
                         imageVector = Icons.Filled.Sync,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.9f),
+                        tint = colors.primary,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         text = "处理消息",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = colors.primary,
                         modifier = Modifier.padding(start = 5.dp)
                     )
                 }
@@ -358,7 +381,7 @@ private fun HeroEngineCard(
                     Text(
                         text = "急停",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Color(0xFFFFD2CC)
+                        color = colors.error
                     )
                 }
             }
@@ -371,43 +394,21 @@ private fun HeroButton(
     text: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     primary: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    if (primary) {
-        Button(
-            onClick = onClick,
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
-                contentColor = BossClawColors.TealDeep
-            )
-        ) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(17.dp))
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 5.dp)
-            )
-        }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.45f)),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-        ) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(17.dp))
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 5.dp)
-            )
-        }
-    }
+    SoftButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier,
+        variant = if (primary) SoftButtonVariant.Primary else SoftButtonVariant.Secondary,
+        leadingIcon = icon
+    )
 }
 
 @Composable
-private fun QuotaBar(delivered: Int, limit: Int, dark: Boolean, modifier: Modifier = Modifier) {
+private fun QuotaBar(delivered: Int, limit: Int, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
     val safeLimit = limit.coerceAtLeast(1)
     val fraction = (delivered.toFloat() / safeLimit.toFloat()).coerceIn(0f, 1f)
     val animated by animateFloatAsState(
@@ -423,12 +424,12 @@ private fun QuotaBar(delivered: Int, limit: Int, dark: Boolean, modifier: Modifi
             Text(
                 text = "今日投递",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.7f)
+                color = colors.onSurfaceVariant
             )
             Text(
                 text = "$delivered / $limit",
                 style = MaterialTheme.typography.labelLarge,
-                color = Color.White
+                color = colors.onSurface
             )
         }
         Box(
@@ -437,14 +438,18 @@ private fun QuotaBar(delivered: Int, limit: Int, dark: Boolean, modifier: Modifi
                 .padding(top = 6.dp)
                 .height(7.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.18f))
+                .background(colors.surfaceContainerHigh)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(animated.coerceAtLeast(0.001f))
                     .clip(CircleShape)
-                    .background(BossClawGradients.quota(dark))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(colors.primary, BossClawColors.TealBright)
+                        )
+                    )
             )
         }
     }
@@ -481,7 +486,7 @@ private fun PulsingDot(color: Color, pulsing: Boolean) {
 
 /** 雷达装饰：同心圆 + 旋转扫描扇面，低透明度，不干扰正文可读性。 */
 @Composable
-private fun RadarBackdrop(modifier: Modifier = Modifier) {
+private fun RadarBackdrop(tint: Color, modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "radar")
     val sweep by transition.animateFloat(
         initialValue = 0f,
@@ -504,7 +509,7 @@ private fun RadarBackdrop(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val center = Offset(size.width * 0.93f, size.height * 0.08f)
         val radius = size.minDimension * 0.72f
-        val ring = Color.White.copy(alpha = 0.12f)
+        val ring = tint.copy(alpha = 0.10f)
         repeat(3) { index ->
             drawCircle(
                 color = ring,
@@ -526,20 +531,20 @@ private fun RadarBackdrop(modifier: Modifier = Modifier) {
             drawPath(
                 path = wedge,
                 brush = Brush.radialGradient(
-                    colors = listOf(Color.White.copy(alpha = 0.2f), Color.Transparent),
+                    colors = listOf(tint.copy(alpha = 0.16f), Color.Transparent),
                     center = center,
                     radius = radius
                 )
             )
             drawLine(
-                color = Color.White.copy(alpha = 0.35f),
+                color = tint.copy(alpha = 0.26f),
                 start = center,
                 end = Offset(center.x, center.y - radius),
                 strokeWidth = 1.5.dp.toPx()
             )
         }
         drawCircle(
-            color = Color.White.copy(alpha = 0.45f * (1f - ripple)),
+            color = tint.copy(alpha = 0.35f * (1f - ripple)),
             radius = 6.dp.toPx() + 30.dp.toPx() * ripple,
             center = center,
             style = Stroke(width = 1.4.dp.toPx())
@@ -555,7 +560,7 @@ private fun SystemStatusCard(permissions: PermissionSnapshot, onOpen: () -> Unit
         permissions.notifications,
         !permissions.batteryOptimized
     ).count { it }
-    BossClawCard(padding = 16.dp) {
+    BossClawCard(padding = BossClawSpacing.md) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -575,7 +580,7 @@ private fun SystemStatusCard(permissions: PermissionSnapshot, onOpen: () -> Unit
             }
             TextButton(onClick = onOpen) { Text("权限自检") }
         }
-        Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xs)) {
             StatusCell(
                 title = "无障碍",
                 ready = permissions.accessibility,
@@ -617,28 +622,12 @@ private fun RecommendMatchCard(
     val busy = matching || engineState == EngineState.RUNNING || engineState == EngineState.PAUSED
     BossClawCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                BossClawColors.Teal.copy(alpha = 0.20f),
-                                BossClawColors.Teal.copy(alpha = 0.07f)
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.AutoAwesome,
-                    contentDescription = null,
-                    tint = BossClawColors.Teal,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+            SoftIconBadge(
+                icon = Icons.Outlined.AutoAwesome,
+                size = 42.dp,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Column(modifier = Modifier.weight(1f).padding(start = BossClawSpacing.sm)) {
                 Text(
                     text = "BOSS 推荐匹配",
                     style = MaterialTheme.typography.titleMedium,
@@ -656,38 +645,27 @@ private fun RecommendMatchCard(
                 )
             }
         }
-        Button(
+        SoftButton(
+            text = if (matching) "匹配中…" else "开始推荐匹配",
             onClick = onStart,
             enabled = !busy,
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-        ) {
-            if (matching) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-                Text("匹配中…", modifier = Modifier.padding(start = 6.dp))
-            } else {
-                Icon(
-                    imageVector = Icons.Outlined.AutoAwesome,
-                    contentDescription = null,
-                    modifier = Modifier.size(17.dp)
-                )
-                Text("开始推荐匹配", modifier = Modifier.padding(start = 5.dp))
-            }
-        }
+            loading = matching,
+            leadingIcon = Icons.Outlined.AutoAwesome,
+            modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.sm)
+        )
         Text(
             text = "匹配结果进入岗位页；发送仍遵守运行模式与人工确认",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = Modifier.padding(top = BossClawSpacing.xs)
         )
     }
 }
 
 @Composable
 private fun TodayOverview(stats: DailyStats, onOpenInsights: () -> Unit) {
+    val dark = LocalBossClawDark.current
+    val colors = MaterialTheme.colorScheme
     BossClawCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -702,39 +680,39 @@ private fun TodayOverview(stats: DailyStats, onOpenInsights: () -> Unit) {
             TextButton(onClick = onOpenInsights) { Text("数据看板") }
         }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)
         ) {
             MiniMetric(
                 label = "发现",
                 value = stats.discovered,
-                color = BossClawColors.Teal,
+                color = colors.primary,
                 modifier = Modifier.weight(1f)
             )
             MiniMetric(
                 label = "投递",
                 value = stats.delivered,
-                color = BossClawColors.Amber,
+                color = colors.secondary,
                 modifier = Modifier.weight(1f)
             )
             MiniMetric(
                 label = "回复",
                 value = stats.replied,
-                color = BossClawColors.Success,
+                color = if (dark) Color(0xFF6FD69B) else BossClawColors.Success,
                 modifier = Modifier.weight(1f)
             )
             MiniMetric(
                 label = "约面",
                 value = stats.interview,
-                color = BossClawColors.TealDeep,
+                color = colors.tertiary,
                 modifier = Modifier.weight(1f)
             )
         }
         Text(
             text = "首次发送后会自动暂停，便于核对会话；遇到验证码会立即停手",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 10.dp)
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(top = BossClawSpacing.sm)
         )
     }
 }

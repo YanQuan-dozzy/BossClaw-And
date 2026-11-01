@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,14 +31,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -63,10 +66,16 @@ import com.bossclaw.android.R
 import com.bossclaw.android.core.TimeUtils
 import com.bossclaw.android.model.FitLevel
 import com.bossclaw.android.model.LogLine
+import com.bossclaw.android.ui.components.soft.SoftIconBadge
 import com.bossclaw.android.ui.theme.BossClawColors
+import com.bossclaw.android.ui.theme.BossClawElevation
 import com.bossclaw.android.ui.theme.BossClawGradients
 import com.bossclaw.android.ui.theme.BossClawMotion
+import com.bossclaw.android.ui.theme.BossClawRadius
+import com.bossclaw.android.ui.theme.BossClawShadow
+import com.bossclaw.android.ui.theme.BossClawSpacing
 import com.bossclaw.android.ui.theme.LocalBossClawDark
+import com.bossclaw.android.ui.theme.softShadow
 
 fun fitColor(level: FitLevel): Color = when (level) {
     FitLevel.STRONG -> BossClawColors.Teal
@@ -100,9 +109,12 @@ fun openSystemSettings(context: Context, intent: Intent) {
 @Composable
 fun AppBackdrop(modifier: Modifier = Modifier) {
     val dark = LocalBossClawDark.current
+    val base = if (dark) BossClawColors.DarkBackground else BossClawColors.Paper
     val grainColor = if (dark) Color.White.copy(alpha = 0.045f) else Color(0xFF14211F).copy(alpha = 0.035f)
     val fogStrength = if (dark) 0.24f else 0.11f
     Canvas(modifier = modifier.fillMaxSize()) {
+        // 先铺主题底色，避免应用主题与系统窗口背景不一致时露出黑底。
+        drawRect(color = base)
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(BossClawColors.Teal.copy(alpha = fogStrength), Color.Transparent),
@@ -139,25 +151,25 @@ fun AppBackdrop(modifier: Modifier = Modifier) {
 @Composable
 fun BossClawCard(
     modifier: Modifier = Modifier,
-    padding: Dp = 18.dp,
+    padding: Dp = BossClawSpacing.card,
     emphasized: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val dark = LocalBossClawDark.current
-    Surface(
-        modifier = modifier.fillMaxWidth().animateContentSize(BossClawMotion.snappy()),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = if (emphasized) 0.9f else 0.5f)
-        ),
-        shadowElevation = if (emphasized) 8.dp else 1.dp
-    ) {
-        Box(modifier = Modifier.background(BossClawGradients.cardSheen(dark))) {
-            Column(modifier = Modifier.padding(padding), content = content)
-        }
-    }
+    val shape = RoundedCornerShape(BossClawRadius.card)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(BossClawMotion.snappy())
+            .softShadow(
+                elevation = if (emphasized) BossClawElevation.raised else BossClawElevation.card,
+                shape = shape,
+                color = if (emphasized) BossClawShadow.brand(dark) else BossClawShadow.neutral(dark)
+            )
+            .background(MaterialTheme.colorScheme.surface, shape)
+            .padding(padding),
+        content = content
+    )
 }
 
 @Composable
@@ -172,22 +184,16 @@ fun ScreenHeader(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            // 标题左侧的竖向品牌短线，给页面标题一个统一的识别锚点。
+            // 品牌圆点替代原来的竖条，保持识别度但去掉硬边。
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .height(if (subtitle == null) 24.dp else 34.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .size(10.dp)
                     .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                            )
-                        )
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                        CircleShape
                     )
             )
-            Column(modifier = Modifier.padding(start = 12.dp)) {
+            Column(modifier = Modifier.padding(start = BossClawSpacing.sm)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.headlineMedium,
@@ -210,16 +216,13 @@ fun ScreenHeader(
 @Composable
 fun FitChip(level: FitLevel) {
     val color = fitColor(level)
-    Surface(
-        color = color.copy(alpha = 0.14f),
-        shape = RoundedCornerShape(9.dp)
-    ) {
+    Surface(color = color.copy(alpha = 0.12f), shape = CircleShape) {
         Text(
             text = level.label,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
             color = color,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
         )
     }
 }
@@ -236,7 +239,7 @@ fun StatusPill(text: String, color: Color, pulse: Boolean = false) {
         ),
         label = "status-pill-alpha"
     )
-    Surface(color = color.copy(alpha = 0.14f), shape = RoundedCornerShape(12.dp)) {
+    Surface(color = color.copy(alpha = 0.12f), shape = CircleShape) {
         Row(
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -262,60 +265,62 @@ fun StatTile(
     label: String,
     value: String,
     suffix: String = "",
-    accent: Color = BossClawColors.Teal,
+    accent: Color? = null,
     modifier: Modifier = Modifier,
     numericValue: Int? = null,
     hint: String? = null
 ) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+    val dark = LocalBossClawDark.current
+    val colors = MaterialTheme.colorScheme
+    val tint = accent ?: colors.primary
+    val shape = RoundedCornerShape(BossClawRadius.control)
+    Column(
+        modifier = modifier
+            .softShadow(BossClawElevation.card, shape, BossClawShadow.neutral(dark))
+            .background(colors.surface, shape)
+            .padding(BossClawSpacing.md)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                if (numericValue != null) {
-                    val animated by animateIntAsState(
-                        targetValue = numericValue,
-                        animationSpec = tween(BossClawMotion.SLOW, easing = BossClawMotion.EmphasizedDecel),
-                        label = "stat-count"
-                    )
-                    Text(
-                        text = animated.toString(),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = accent
-                    )
-                } else {
-                    Text(
-                        text = value,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = accent
-                    )
-                }
-                if (suffix.isNotEmpty()) {
-                    Text(
-                        text = suffix,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 3.dp, bottom = 3.dp)
-                    )
-                }
-            }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-            if (hint != null) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            if (numericValue != null) {
+                val animated by animateIntAsState(
+                    targetValue = numericValue,
+                    animationSpec = tween(BossClawMotion.SLOW, easing = BossClawMotion.EmphasizedDecel),
+                    label = "stat-count"
+                )
                 Text(
-                    text = hint,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = accent.copy(alpha = 0.8f),
-                    modifier = Modifier.padding(top = 2.dp)
+                    text = animated.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = tint
+                )
+            } else {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = tint
                 )
             }
+            if (suffix.isNotEmpty()) {
+                Text(
+                    text = suffix,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 3.dp, bottom = 3.dp)
+                )
+            }
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(top = BossClawSpacing.xxs)
+        )
+        if (hint != null) {
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.labelSmall,
+                color = tint.copy(alpha = 0.8f),
+                modifier = Modifier.padding(top = BossClawSpacing.xxs)
+            )
         }
     }
 }
@@ -328,18 +333,8 @@ fun EmptyState(
     message: String,
     image: Boolean = true
 ) {
-    val transition = rememberInfiniteTransition(label = "empty-float")
-    val offset by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2600, easing = BossClawMotion.Standard),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "empty-float-offset"
-    )
     Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = BossClawSpacing.xxl),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (image) {
@@ -347,34 +342,30 @@ fun EmptyState(
                 painter = painterResource(R.drawable.img_empty_radar),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .size(width = 168.dp, height = 118.dp)
-                    .graphicsLayer { translationY = offset }
+                modifier = Modifier.size(width = 168.dp, height = 118.dp)
             )
         } else if (icon != null) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(16.dp).size(30.dp)
-                )
-            }
+            SoftIconBadge(
+                icon = icon,
+                size = 72.dp,
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(top = 12.dp)
+            modifier = Modifier.padding(top = BossClawSpacing.md)
         )
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp, start = 24.dp, end = 24.dp)
+            modifier = Modifier.padding(
+                top = BossClawSpacing.xs,
+                start = BossClawSpacing.xl,
+                end = BossClawSpacing.xl
+            )
         )
     }
 }
@@ -389,20 +380,14 @@ fun SettingSwitchRow(
     enabled: Boolean = true
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = BossClawSpacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
+            SoftIconBadge(icon = icon, size = 36.dp)
+            Spacer(modifier = Modifier.width(BossClawSpacing.sm))
         }
-        Column(
-            modifier = Modifier.weight(1f).padding(start = if (icon != null) 12.dp else 0.dp)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
@@ -430,15 +415,16 @@ fun StatusCell(
     val color = if (ready) BossClawColors.Success else BossClawColors.Danger
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .background(color.copy(alpha = 0.08f), RoundedCornerShape(BossClawRadius.control))
+            .clip(RoundedCornerShape(BossClawRadius.control))
             .then(
                 if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
             )
-            .padding(vertical = 6.dp, horizontal = 4.dp),
+            .padding(vertical = BossClawSpacing.xs, horizontal = BossClawSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(modifier = Modifier.size(7.dp), shape = CircleShape, color = color) {}
-        Column(modifier = Modifier.padding(start = 8.dp)) {
+        Column(modifier = Modifier.padding(start = BossClawSpacing.xs)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
@@ -504,7 +490,7 @@ fun BossClawDropdown(
         onExpandedChange = { if (enabled) expanded = !expanded },
         modifier = modifier
     ) {
-        OutlinedTextField(
+        TextField(
             value = selectedLabel,
             onValueChange = {},
             readOnly = true,
@@ -513,8 +499,19 @@ fun BossClawDropdown(
             label = { Text(label) },
             supportingText = hint?.let { { Text(it) } },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            shape = RoundedCornerShape(BossClawRadius.control),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
             modifier = Modifier
-                .menuAnchor()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled)
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(
@@ -572,7 +569,7 @@ fun BossClawNumberField(
         }
     }
 
-    OutlinedTextField(
+    TextField(
         value = text,
         onValueChange = { raw ->
             val digits = raw.filter { it.isDigit() }.take(9)
@@ -587,6 +584,18 @@ fun BossClawNumberField(
         placeholder = { Text(placeholder) },
         supportingText = hint?.let { { Text(it) } },
         singleLine = true,
+        shape = RoundedCornerShape(BossClawRadius.control),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            cursorColor = MaterialTheme.colorScheme.primary,
+            focusedLabelColor = MaterialTheme.colorScheme.primary,
+            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = modifier
             .fillMaxWidth()

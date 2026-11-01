@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -19,19 +18,19 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bossclaw.android.data.db.SkillEntity
 import com.bossclaw.android.llm.SkillScope
 import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.components.BossClawCard
 import com.bossclaw.android.ui.components.ScreenHeader
-import com.bossclaw.android.ui.theme.BossClawColors
+import com.bossclaw.android.ui.components.soft.SoftButton
+import com.bossclaw.android.ui.components.soft.SoftButtonVariant
+import com.bossclaw.android.ui.theme.BossClawSpacing
 
 @Composable
 fun SkillsSettingsScreen(viewModel: BossClawViewModel) {
@@ -44,8 +43,13 @@ fun SkillsSettingsScreen(viewModel: BossClawViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 26.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(
+                start = BossClawSpacing.screen,
+                end = BossClawSpacing.screen,
+                top = BossClawSpacing.xxs,
+                bottom = BossClawSpacing.md
+            ),
+        verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
             title = "技能库",
@@ -62,10 +66,12 @@ fun SkillsSettingsScreen(viewModel: BossClawViewModel) {
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                TextButton(onClick = { picker.launch(arrayOf("*/*")) }) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Text("导入 .md")
-                }
+                SoftButton(
+                    text = "导入 .md",
+                    onClick = { picker.launch(arrayOf("*/*")) },
+                    variant = SoftButtonVariant.Ghost,
+                    leadingIcon = Icons.Filled.Add
+                )
             }
             Text(
                 text = "评估、开场白、回复时按技能作用域追加约束",
@@ -77,7 +83,7 @@ fun SkillsSettingsScreen(viewModel: BossClawViewModel) {
                     text = "技能加载中…",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 10.dp)
+                    modifier = Modifier.padding(top = BossClawSpacing.xs)
                 )
             } else {
                 skills.forEach { skill ->
@@ -103,25 +109,26 @@ private fun SkillRow(
     onToggle: (String, Boolean) -> Unit,
     onDelete: (SkillEntity) -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = skill.name,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = colors.onSurface
             )
             Text(
                 text = "${SkillScope.label(skill.scope)} · ${skill.description}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = colors.onSurfaceVariant
             )
             Text(
                 text = if (skill.builtin) "内置技能" else "自定义技能",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (skill.builtin) BossClawColors.Muted else BossClawColors.Teal
+                color = if (skill.builtin) colors.onSurfaceVariant else colors.primary
             )
         }
         Switch(
@@ -133,7 +140,7 @@ private fun SkillRow(
                 Icon(
                     Icons.Filled.Delete,
                     contentDescription = "删除技能",
-                    tint = BossClawColors.Muted
+                    tint = colors.error
                 )
             }
         }

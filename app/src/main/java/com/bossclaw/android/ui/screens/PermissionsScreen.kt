@@ -1,6 +1,8 @@
 package com.bossclaw.android.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -20,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,6 +34,9 @@ import com.bossclaw.android.ui.components.BossClawCard
 import com.bossclaw.android.ui.components.ScreenHeader
 import com.bossclaw.android.ui.components.openSystemSettings
 import com.bossclaw.android.ui.theme.BossClawColors
+import com.bossclaw.android.ui.theme.BossClawRadius
+import com.bossclaw.android.ui.theme.BossClawSpacing
+import com.bossclaw.android.ui.theme.LocalBossClawDark
 import com.bossclaw.android.util.PermissionTools
 
 @Composable
@@ -40,8 +48,13 @@ fun PermissionsScreen(viewModel: BossClawViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 26.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(
+                start = BossClawSpacing.screen,
+                end = BossClawSpacing.screen,
+                top = BossClawSpacing.xxs,
+                bottom = BossClawSpacing.xl
+            ),
+        verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
             title = "权限自检",
@@ -107,7 +120,7 @@ fun PermissionsScreen(viewModel: BossClawViewModel) {
                     text = line,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp)
+                    modifier = Modifier.padding(top = BossClawSpacing.xs)
                 )
             }
         }
@@ -128,31 +141,59 @@ private fun PermissionLine(
     actionLabel: String,
     onClick: () -> Unit
 ) {
+    val dark = LocalBossClawDark.current
+    val colors = MaterialTheme.colorScheme
+    val statusColor = if (granted) {
+        if (dark) Color(0xFF6FD69B) else BossClawColors.Success
+    } else {
+        colors.error
+    }
+    val shape = RoundedCornerShape(BossClawRadius.control)
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = BossClawSpacing.xxs)
+            .background(
+                if (granted) colors.surfaceContainer else colors.error.copy(alpha = 0.06f),
+                shape
+            )
+            .padding(horizontal = BossClawSpacing.sm, vertical = BossClawSpacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = if (granted) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
-            contentDescription = null,
-            tint = if (granted) BossClawColors.Success else BossClawColors.Danger,
-            modifier = Modifier.size(20.dp)
-        )
-        Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .background(statusColor.copy(alpha = 0.10f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (granted) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = statusColor,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f).padding(start = BossClawSpacing.sm)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = colors.onSurface
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = colors.onSurfaceVariant
             )
         }
-        TextButton(onClick = onClick, enabled = !granted) {
-            Text(if (granted) "已就绪" else actionLabel)
+        if (granted) {
+            Text(
+                text = "已就绪",
+                style = MaterialTheme.typography.labelLarge,
+                color = statusColor
+            )
+        } else {
+            TextButton(onClick = onClick) { Text(actionLabel) }
         }
     }
 }

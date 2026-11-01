@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -21,13 +22,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -52,7 +50,11 @@ import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.components.BossClawCard
 import com.bossclaw.android.ui.components.EmptyState
 import com.bossclaw.android.ui.components.ScreenHeader
-import com.bossclaw.android.ui.theme.BossClawColors
+import com.bossclaw.android.ui.components.soft.SoftButton
+import com.bossclaw.android.ui.components.soft.SoftButtonVariant
+import com.bossclaw.android.ui.components.soft.SoftTextField
+import com.bossclaw.android.ui.theme.BossClawRadius
+import com.bossclaw.android.ui.theme.BossClawSpacing
 
 /** 超过该长度时输入框只展示预览，避免长文本逐字排版拖慢页面。 */
 private const val PREVIEW_CHARS = 1_500
@@ -91,8 +93,8 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(horizontal = BossClawSpacing.screen, vertical = BossClawSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
             title = "简历中心",
@@ -124,7 +126,11 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
                     )
                 }
                 TextButton(onClick = { picker.launch(resumeMimeTypes) }) {
-                    Icon(Icons.Filled.Upload, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                    Icon(
+                        imageVector = Icons.Filled.Upload,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = BossClawSpacing.xxs)
+                    )
                     Text(if (hasResume) "重新导入" else "导入文件")
                 }
             }
@@ -134,21 +140,22 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
             } else {
                 editor
             }
-            OutlinedTextField(
+            SoftTextField(
                 value = preview,
                 onValueChange = { text -> editor = text.take(ResumeTools.MAX_RESUME_CHARS) },
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 180.dp),
-                label = { Text(if (folded) "简历原文（纯文本预览）" else "简历原文（纯文本）") },
-                placeholder = {
-                    Text("支持 PDF / DOCX / TXT / MD；图片、扫描件等无法解析的文件不会导入，可直接粘贴正文")
-                },
-                supportingText = {
-                    Text(
-                        if (folded) "预览已截断，保存原文与生成画像仍使用完整内容"
-                        else "单次编辑最多 ${ResumeTools.MAX_RESUME_CHARS} 字；超长文本会自动折叠以保证输入流畅"
-                    )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = BossClawSpacing.sm)
+                    .heightIn(min = 180.dp),
+                label = if (folded) "简历原文（纯文本预览）" else "简历原文（纯文本）",
+                placeholder = "支持 PDF / DOCX / TXT / MD；图片、扫描件等无法解析的文件不会导入，可直接粘贴正文",
+                supportingText = if (folded) {
+                    "预览已截断，保存原文与生成画像仍使用完整内容"
+                } else {
+                    "单次编辑最多 ${ResumeTools.MAX_RESUME_CHARS} 字；超长文本会自动折叠以保证输入流畅"
                 },
                 readOnly = folded,
+                singleLine = false,
                 minLines = 8,
                 maxLines = 16
             )
@@ -158,19 +165,22 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
                 }
             }
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)
             ) {
-                OutlinedButton(
+                SoftButton(
+                    text = "保存原文",
                     onClick = { viewModel.saveResume(editor, fileName) },
                     enabled = !busy,
+                    variant = SoftButtonVariant.Secondary,
                     modifier = Modifier.weight(1f)
-                ) { Text("保存原文") }
-                Button(
+                )
+                SoftButton(
+                    text = "生成画像",
                     onClick = { viewModel.generateProfile() },
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("生成画像") }
+                )
             }
         }
 
@@ -257,9 +267,12 @@ private fun ProfileForm(
     var roles by remember(profile) { mutableStateOf(rolesInit) }
     var cities by remember(profile) { mutableStateOf(citiesInit) }
 
-    Column(modifier = Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier = Modifier.padding(top = BossClawSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(BossClawSpacing.sm)
+    ) {
         FormField("姓名", name) { name = it }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)) {
             FormField("工作年限", years, number = true, modifier = Modifier.weight(1f)) { years = it }
             FormField("期望薪资(K)", salary, number = true, modifier = Modifier.weight(1f)) { salary = it }
         }
@@ -289,7 +302,8 @@ private fun ProfileForm(
             onChange = { cities = it }
         )
         FormField("一句话自我介绍", summary, minLines = 2) { summary = it }
-        Button(
+        SoftButton(
+            text = "保存画像",
             onClick = {
                 onSave(
                     name,
@@ -304,7 +318,7 @@ private fun ProfileForm(
                 )
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("保存画像") }
+        )
     }
 }
 
@@ -334,16 +348,16 @@ private fun ChipListField(
         )
         if (values.isNotEmpty()) {
             FlowRow(
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(BossClawSpacing.xs),
+                verticalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)
             ) {
                 values.forEach { value ->
                     ProfileChip(value = value, onRemove = { onChange(values - value) })
                 }
             }
         }
-        OutlinedTextField(
+        SoftTextField(
             value = input,
             onValueChange = { raw ->
                 if (raw.any { it in "、,，/|\n" }) {
@@ -354,8 +368,8 @@ private fun ChipListField(
                     input = raw
                 }
             },
-            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-            placeholder = { Text(hint) },
+            modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xs),
+            placeholder = hint,
             singleLine = true,
             trailingIcon = {
                 IconButton(onClick = { commit() }) {
@@ -371,11 +385,16 @@ private fun ChipListField(
 @Composable
 private fun ProfileChip(value: String, onRemove: () -> Unit) {
     Surface(
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-        shape = MaterialTheme.shapes.small
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shape = CircleShape
     ) {
         Row(
-            modifier = Modifier.padding(start = 10.dp, top = 2.dp, bottom = 2.dp, end = 2.dp),
+            modifier = Modifier.padding(
+                start = BossClawSpacing.sm,
+                top = BossClawSpacing.xxs,
+                bottom = BossClawSpacing.xxs,
+                end = BossClawSpacing.xxs
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -404,7 +423,7 @@ private fun FormField(
     modifier: Modifier = Modifier,
     onChange: (String) -> Unit
 ) {
-    OutlinedTextField(
+    SoftTextField(
         value = value,
         onValueChange = { text ->
             if (number) {
@@ -414,7 +433,7 @@ private fun FormField(
             }
         },
         modifier = modifier.fillMaxWidth(),
-        label = { Text(label) },
+        label = label,
         singleLine = minLines == 1,
         minLines = minLines,
         keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default
@@ -442,7 +461,11 @@ private fun DirectionsCard(
                 color = MaterialTheme.colorScheme.onSurface
             )
             TextButton(onClick = onToggleForm) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 2.dp))
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = BossClawSpacing.xxs)
+                )
                 Text(if (showForm) "取消" else "添加")
             }
         }
@@ -456,11 +479,15 @@ private fun DirectionsCard(
             var name by remember { mutableStateOf("") }
             var query by remember { mutableStateOf("") }
             var keywords by remember { mutableStateOf("") }
-            Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.padding(top = BossClawSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)
+            ) {
                 FormField("方向名称，如「AI 产品经理」", name) { name = it }
                 FormField("搜索关键词（可留空，默认用名称）", query) { query = it }
                 FormField("过滤关键词，用逗号分隔", keywords) { keywords = it }
-                Button(
+                SoftButton(
+                    text = "添加方向",
                     onClick = {
                         onAdd(name, query, keywords)
                         name = ""
@@ -468,7 +495,7 @@ private fun DirectionsCard(
                         keywords = ""
                     },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("添加方向") }
+                )
             }
         }
 
@@ -480,7 +507,7 @@ private fun DirectionsCard(
         } else {
             directions.forEach { direction ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.xs),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -507,7 +534,7 @@ private fun DirectionsCard(
                         Icon(
                             Icons.Filled.Delete,
                             contentDescription = "删除方向",
-                            tint = BossClawColors.Muted
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

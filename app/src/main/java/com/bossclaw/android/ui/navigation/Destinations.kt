@@ -13,6 +13,8 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation3.runtime.NavKey
+import kotlinx.serialization.Serializable
 
 object Routes {
     const val WORKBENCH = "workbench"
@@ -31,6 +33,10 @@ object Routes {
 
 data class NavEntry(val route: String, val label: String, val icon: ImageVector)
 
+/** Navigation 3 的返回栈键。先用路由字符串包一层，页面层的回调签名暂时不用改。 */
+@Serializable
+data class AppKey(val route: String) : NavKey
+
 data class NavSection(val title: String, val entries: List<NavEntry>)
 
 /** 底部常驻的四个工作模块：日常最常用的切换入口，不再重复出现在侧栏与首页。 */
@@ -40,6 +46,9 @@ val workTabs = listOf(
     NavEntry(Routes.CHAT, "沟通", Icons.AutoMirrored.Outlined.Chat),
     NavEntry(Routes.RESUME, "简历中心", Icons.Outlined.Description)
 )
+
+/** 底部常驻入口：切换时清掉中间页，避免返回栈无限增长。 */
+val tabRoutes = workTabs.map { it.route }.toSet()
 
 /** 侧栏只保留底部导航之外的入口：看板、运行记录与配置。 */
 val navSections = listOf(
