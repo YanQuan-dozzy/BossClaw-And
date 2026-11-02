@@ -8,6 +8,7 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Work
@@ -29,6 +30,8 @@ object Routes {
     const val MODEL = "settings/model"
     const val SKILLS = "settings/skills"
     const val PERMISSIONS = "settings/permissions"
+
+    const val GUIDE = "guide"
 }
 
 data class NavEntry(val route: String, val label: String, val icon: ImageVector)
@@ -50,7 +53,7 @@ val workTabs = listOf(
 /** 底部常驻入口：切换时清掉中间页，避免返回栈无限增长。 */
 val tabRoutes = workTabs.map { it.route }.toSet()
 
-/** 侧栏只保留底部导航之外的入口：看板、运行记录与配置。 */
+/** 侧栏只保留底部导航之外的入口：看板、运行记录、配置与帮助文档。 */
 val navSections = listOf(
     NavSection(
         title = "工作",
@@ -72,6 +75,12 @@ val navSections = listOf(
             NavEntry(Routes.MODEL, "模型服务", Icons.Outlined.Cloud),
             NavEntry(Routes.SKILLS, "技能库", Icons.Outlined.AutoAwesome),
             NavEntry(Routes.SETTINGS, "通用设置", Icons.Outlined.Settings)
+        )
+    ),
+    NavSection(
+        title = "帮助",
+        entries = listOf(
+            NavEntry(Routes.GUIDE, "使用文档", Icons.Outlined.School)
         )
     )
 )

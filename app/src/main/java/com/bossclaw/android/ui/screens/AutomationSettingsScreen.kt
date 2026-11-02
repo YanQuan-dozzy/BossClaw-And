@@ -11,7 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,11 +21,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bossclaw.android.domain.HrActivity
 import com.bossclaw.android.domain.JobFilter
 import com.bossclaw.android.model.RunMode
-import com.bossclaw.android.model.Speed
 import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.components.BossClawCard
 import com.bossclaw.android.ui.components.BossClawDropdown
 import com.bossclaw.android.ui.components.BossClawNumberField
+import com.bossclaw.android.ui.components.BossClawSlider
 import com.bossclaw.android.ui.components.ScreenHeader
 import com.bossclaw.android.ui.components.SettingSwitchRow
 import com.bossclaw.android.ui.components.soft.SoftTextField
@@ -84,21 +83,16 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 }
             }
 
-            Text(
-                text = "节奏",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = BossClawSpacing.sm)
-            )
-            BossClawDropdown(
-                label = "岗位间隔节奏",
-                selectedValue = settings.speed.raw,
-                options = Speed.entries.map { it.raw to it.label },
-                onSelect = { raw ->
-                    viewModel.updateSettings { it.copy(speed = Speed.from(raw)) }
-                },
-                modifier = Modifier.padding(top = BossClawSpacing.xs)
-            )
+            SliderRow(
+                title = "岗位间隔",
+                hint = "自定义每个岗位之间的等待秒数，执行时会自动加入随机抖动",
+                value = settings.jobIntervalSeconds,
+                range = 10..600,
+                step = 5,
+                unit = "秒/岗"
+            ) { value ->
+                viewModel.updateSettings { it.copy(jobIntervalSeconds = value) }
+            }
         }
 
         BossClawCard {
@@ -414,12 +408,13 @@ private fun SliderRow(
                 modifier = Modifier.width(132.dp)
             )
         }
-        Slider(
+        BossClawSlider(
             value = value.coerceIn(range.first, range.last).toFloat(),
             onValueChange = { raw ->
                 onValueChange(((raw / step).roundToInt() * step).coerceIn(range.first, range.last))
             },
-            valueRange = range.first.toFloat()..range.last.toFloat()
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            modifier = Modifier.padding(top = BossClawSpacing.xxs)
         )
     }
 }

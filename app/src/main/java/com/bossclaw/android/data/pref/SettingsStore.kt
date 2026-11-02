@@ -2,14 +2,14 @@ package com.bossclaw.android.data.pref
 
 import android.content.Context
 import com.bossclaw.android.model.RunMode
-import com.bossclaw.android.model.Speed
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class AppSettings(
     val runMode: RunMode = RunMode.SEMI,
-    val speed: Speed = Speed.NORMAL,
+    /** 岗位投递间隔（秒），由用户自定义；执行时自动加入随机抖动 */
+    val jobIntervalSeconds: Int = 20,
     val maxDailyGreetings: Int = 120,
     val minSalaryK: Int = 0,
     /** 薪资口径：false 按月薪（K）比较，true 按日薪（元/天）比较；实习与兼职岗位多为日薪 */
@@ -41,7 +41,9 @@ data class AppSettings(
     val notifications: Boolean = true,
     val themeMode: String = "system",
     val paused: Boolean = false,
-    val firstDeliveryDone: Boolean = false
+    val firstDeliveryDone: Boolean = false,
+    /** 首次使用引导是否已看过；关闭后不再自动弹出，可随时从侧栏打开使用文档 */
+    val onboardingSeen: Boolean = false
 )
 
 class SettingsStore(context: Context) {
@@ -52,7 +54,7 @@ class SettingsStore(context: Context) {
 
     private fun load(): AppSettings = AppSettings(
         runMode = RunMode.from(prefs.getString(KEY_RUN_MODE, null)),
-        speed = Speed.from(prefs.getString(KEY_SPEED, null)),
+        jobIntervalSeconds = prefs.getInt(KEY_JOB_INTERVAL, 20),
         maxDailyGreetings = prefs.getInt(KEY_DAILY_GREETINGS, 120),
         minSalaryK = prefs.getInt(KEY_MIN_SALARY, 0),
         salaryDaily = prefs.getBoolean(KEY_SALARY_DAILY, false),
@@ -76,7 +78,8 @@ class SettingsStore(context: Context) {
         notifications = prefs.getBoolean(KEY_NOTIFICATIONS, true),
         themeMode = prefs.getString(KEY_THEME, "system") ?: "system",
         paused = prefs.getBoolean(KEY_PAUSED, false),
-        firstDeliveryDone = prefs.getBoolean(KEY_FIRST_DELIVERY, false)
+        firstDeliveryDone = prefs.getBoolean(KEY_FIRST_DELIVERY, false),
+        onboardingSeen = prefs.getBoolean(KEY_ONBOARDING_SEEN, false)
     )
 
     fun update(transform: (AppSettings) -> AppSettings): AppSettings {
@@ -93,7 +96,7 @@ class SettingsStore(context: Context) {
     private fun persist(settings: AppSettings) {
         prefs.edit()
             .putString(KEY_RUN_MODE, settings.runMode.raw)
-            .putString(KEY_SPEED, settings.speed.raw)
+            .putInt(KEY_JOB_INTERVAL, settings.jobIntervalSeconds)
             .putInt(KEY_DAILY_GREETINGS, settings.maxDailyGreetings)
             .putInt(KEY_MIN_SALARY, settings.minSalaryK)
             .putBoolean(KEY_SALARY_DAILY, settings.salaryDaily)
@@ -118,6 +121,7 @@ class SettingsStore(context: Context) {
             .putString(KEY_THEME, settings.themeMode)
             .putBoolean(KEY_PAUSED, settings.paused)
             .putBoolean(KEY_FIRST_DELIVERY, settings.firstDeliveryDone)
+            .putBoolean(KEY_ONBOARDING_SEEN, settings.onboardingSeen)
             .apply()
     }
 
@@ -128,7 +132,7 @@ class SettingsStore(context: Context) {
 
     private companion object {
         const val KEY_RUN_MODE = "run_mode"
-        const val KEY_SPEED = "speed"
+        const val KEY_JOB_INTERVAL = "job_interval_seconds"
         const val KEY_DAILY_GREETINGS = "daily_greetings"
         const val KEY_MIN_SALARY = "min_salary"
         const val KEY_SALARY_DAILY = "salary_daily"
@@ -153,5 +157,6 @@ class SettingsStore(context: Context) {
         const val KEY_THEME = "theme"
         const val KEY_PAUSED = "paused"
         const val KEY_FIRST_DELIVERY = "first_delivery"
+        const val KEY_ONBOARDING_SEEN = "onboarding_seen"
     }
 }

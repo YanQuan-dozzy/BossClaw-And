@@ -40,6 +40,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -57,6 +58,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
@@ -64,8 +66,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -98,6 +102,7 @@ import com.bossclaw.android.ui.screens.RecordsScreen
 import com.bossclaw.android.ui.screens.ResumeScreen
 import com.bossclaw.android.ui.screens.SettingsScreen
 import com.bossclaw.android.ui.screens.SkillsSettingsScreen
+import com.bossclaw.android.ui.screens.UsageGuideScreen
 import com.bossclaw.android.ui.screens.WorkbenchScreen
 import com.bossclaw.android.ui.theme.BossClawColors
 import com.bossclaw.android.ui.theme.BossClawElevation
@@ -168,6 +173,8 @@ private fun BossClawAppContent(viewModel: BossClawViewModel, snackbarHostState: 
     val currentRoute = (backStack.lastOrNull() as? AppKey)?.route ?: Routes.WORKBENCH
     val engineState by viewModel.engineState.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    // 首次启动时弹出一次引导；标记在看过后写入设置，之后可从侧栏「使用文档」随时打开。
+    var onboardingVisible by remember { mutableStateOf(!settings.onboardingSeen) }
 
     // 底部 Tab 切换时回到根，再压入目标页；二级页面直接入栈。
     fun open(route: String) {
@@ -331,6 +338,7 @@ private fun BossClawAppContent(viewModel: BossClawViewModel, snackbarHostState: 
                                         viewModel,
                                         onNavigate = { route -> open(route) }
                                     )
+                                    Routes.GUIDE -> UsageGuideScreen()
                                     else -> WorkbenchScreen(
                                         viewModel,
                                         onNavigate = { route -> open(route) }
@@ -343,6 +351,85 @@ private fun BossClawAppContent(viewModel: BossClawViewModel, snackbarHostState: 
             }
         }
     }
+    }
+
+    if (onboardingVisible) {
+        FirstRunGuideDialog(
+            onDismiss = {
+                onboardingVisible = false
+                viewModel.updateSettings { it.copy(onboardingSeen = true) }
+            },
+            onOpenGuide = {
+                onboardingVisible = false
+                viewModel.updateSettings { it.copy(onboardingSeen = true) }
+                open(Routes.GUIDE)
+            }
+        )
+    }
+}
+
+/** 首次使用弹窗：只列关键准备项，完整步骤放在使用文档页，避免弹窗过长。 */
+@Composable
+private fun FirstRunGuideDialog(onDismiss: () -> Unit, onOpenGuide: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("欢迎使用 BossClaw") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)) {
+                Text(
+                    text = "按下面的顺序完成准备，就可以开始第一次巡查：",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                OnboardingLine(1, "权限自检", "无障碍、悬浮窗、通知与后台运行")
+                OnboardingLine(2, "简历与画像", "导入简历并生成画像")
+                OnboardingLine(3, "模型服务", "填写接口与 API Key 并测试连接")
+                OnboardingLine(4, "自动化边界", "设定运行模式、单日上限与筛选")
+                Text(
+                    text = "详细步骤见侧栏「帮助 → 使用文档」，可以随时回看。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onOpenGuide) { Text("查看使用文档") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("开始使用") }
+        }
+    )
+}
+
+@Composable
+private fun OnboardingLine(index: Int, title: String, body: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+            modifier = Modifier.size(24.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = index.toString(),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        Column(modifier = Modifier.padding(start = BossClawSpacing.sm)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = body,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

@@ -54,9 +54,9 @@ class BossClawOrchestrator(
     private fun dailyCap(settings: com.bossclaw.android.data.pref.AppSettings): Int =
         settings.maxDailyGreetings.coerceIn(1, MAX_SAFE_DAILY)
 
-    /** 岗位间人类化抖动（±35%）。 */
-    private suspend fun betweenJobsDelay(factor: Float) {
-        val base = (BETWEEN_JOBS_MS * factor).toLong()
+    /** 岗位间人类化抖动（±35%），基准间隔由用户按秒自定义。 */
+    private suspend fun betweenJobsDelay(intervalSeconds: Int) {
+        val base = intervalSeconds.coerceIn(MIN_JOB_INTERVAL_S, MAX_JOB_INTERVAL_S) * 1000L
         val jitter = (base * 0.35).toLong().coerceAtLeast(1L)
         val wait = base + Random.nextLong(-jitter, jitter)
         delay(wait.coerceAtLeast(500L))
@@ -359,7 +359,7 @@ class BossClawOrchestrator(
                         break
                     }
                 }
-                betweenJobsDelay(settings.speed.factor)
+                betweenJobsDelay(settings.jobIntervalSeconds)
             } else {
                 log("调度", "岗位已进入待确认队列（${settings.runMode.label}）", "info", job.jobId)
                 scout.returnToFeed()
@@ -380,7 +380,9 @@ class BossClawOrchestrator(
 
     private companion object {
         const val MAX_SAFE_DAILY = 150
-        const val BETWEEN_JOBS_MS = 20_000L
+        /** 自定义岗位间隔的安全上下限（秒），避免设置过密触发平台风控。 */
+        const val MIN_JOB_INTERVAL_S = 10
+        const val MAX_JOB_INTERVAL_S = 600
         /** 推荐匹配一次处理的岗位数量，避免一轮就跑满一屏外的时间。 */
         const val RECOMMEND_BATCH = 6
     }

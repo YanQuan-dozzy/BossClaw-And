@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -13,6 +14,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +30,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,8 +40,10 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -51,7 +57,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -400,7 +408,20 @@ fun SettingSwitchRow(
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            // 未选中态默认取主题描边色，浅色主题下几乎与卡片同色；这里改用更深的描边与滑块，保证可辨识。
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                checkedBorderColor = Color.Transparent,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f)
+            )
+        )
     }
 }
 
@@ -612,5 +633,78 @@ fun BossClawNumberField(
                     }
                 }
             }
+    )
+}
+
+/**
+ * 品牌化滑杆：细圆角轨道 + 圆形滑钮，替代默认的粗轨道与竖条滑钮。
+ * 轨道两端与滑钮圆心对齐，拖动时滑钮轻微放大；数值取整仍由调用方完成。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BossClawSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    enabled: Boolean = true,
+    onValueChangeFinished: (() -> Unit)? = null
+) {
+    val dark = LocalBossClawDark.current
+    val colorScheme = MaterialTheme.colorScheme
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+
+    Slider(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        enabled = enabled,
+        onValueChangeFinished = onValueChangeFinished,
+        valueRange = valueRange,
+        interactionSource = interactionSource,
+        thumb = { state ->
+            val scale by animateFloatAsState(
+                targetValue = if (pressed || state.isDragging) 1.12f else 1f,
+                animationSpec = BossClawMotion.snappy(),
+                label = "slider-thumb-scale"
+            )
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .softShadow(4.dp, CircleShape, BossClawShadow.brand(dark))
+                    .background(colorScheme.primary, CircleShape)
+                    .border(2.5.dp, colorScheme.surface, CircleShape)
+            )
+        },
+        track = { state ->
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+            ) {
+                val trackHeight = size.height
+                val corner = CornerRadius(trackHeight / 2, trackHeight / 2)
+                drawRoundRect(
+                    color = colorScheme.primary.copy(alpha = if (dark) 0.30f else 0.16f),
+                    cornerRadius = corner
+                )
+                val fraction = state.coercedValueAsFraction
+                if (fraction > 0f) {
+                    drawRoundRect(
+                        color = colorScheme.primary,
+                        size = Size(
+                            width = (size.width * fraction).coerceAtLeast(trackHeight),
+                            height = trackHeight
+                        ),
+                        cornerRadius = corner
+                    )
+                }
+            }
+        }
     )
 }

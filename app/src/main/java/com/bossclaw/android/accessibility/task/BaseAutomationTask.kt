@@ -46,10 +46,6 @@ abstract class BaseAutomationTask {
         processStep()
     }
 
-    protected fun getSpeedFactor(): Float = BossClawApp.graph.settingsStore.settings.value.speed.factor
-
-    protected fun getAdjustedDelay(originDelay: Long): Long = (originDelay * getSpeedFactor()).toLong()
-
     private fun processStep() {
         if (!isTaskRunning) return
         if (BossClawApp.graph.settingsStore.settings.value.paused) {
@@ -80,7 +76,7 @@ abstract class BaseAutomationTask {
         mainHandler.postDelayed({
             currentStep++
             processStep()
-        }, getAdjustedDelay(delayMillis))
+        }, delayMillis)
     }
 
     protected fun sendStep(targetStep: Int, delayMillis: Long) {
@@ -88,7 +84,7 @@ abstract class BaseAutomationTask {
         mainHandler.postDelayed({
             currentStep = targetStep
             processStep()
-        }, getAdjustedDelay(delayMillis))
+        }, delayMillis)
     }
 
     protected fun retryCurrentStep(delayMillis: Long, retryLog: String = "目标未出现") {
@@ -98,7 +94,7 @@ abstract class BaseAutomationTask {
             return
         }
         retryCount++
-        mainHandler.postDelayed({ processStep() }, getAdjustedDelay(delayMillis))
+        mainHandler.postDelayed({ processStep() }, delayMillis)
     }
 
     protected open fun finishTask() {
@@ -118,7 +114,7 @@ abstract class BaseAutomationTask {
     private fun startTimeoutMonitor() {
         mainHandler.removeCallbacks(timeoutRunnable)
         if (baseTaskDurationMs > 0) {
-            mainHandler.postDelayed(timeoutRunnable, getAdjustedDelay(baseTaskDurationMs))
+            mainHandler.postDelayed(timeoutRunnable, baseTaskDurationMs)
         }
     }
 

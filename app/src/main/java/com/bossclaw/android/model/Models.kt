@@ -30,16 +30,6 @@ enum class RunMode(val raw: String, val label: String, val hint: String) {
     }
 }
 
-enum class Speed(val raw: String, val label: String, val factor: Float) {
-    FAST("fast", "快速", 0.75f),
-    NORMAL("normal", "正常", 1.0f),
-    SLOW("slow", "慢速", 1.5f);
-
-    companion object {
-        fun from(raw: String?): Speed = entries.firstOrNull { it.raw == raw } ?: NORMAL
-    }
-}
-
 data class LogLine(
     val id: Long = System.nanoTime(),
     val source: String,
