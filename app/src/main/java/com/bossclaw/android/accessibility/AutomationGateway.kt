@@ -37,41 +37,123 @@ class AutomationGateway(private val context: Context) {
         get() = service != null
 
     fun scene(): PageScene {
-        val active = service ?: return PageScene.UNKNOWN
-        val root = active.rootInActiveWindow ?: return PageScene.UNKNOWN
+        val root = bossActiveRoot() ?: return PageScene.UNKNOWN
         val scene = SceneDetector.detect(root)
         root.recycle()
         return scene
     }
 
+    /** 当前前台窗口是否真的是 BOSS；手势只会落到前台应用，后台的 BOSS 一律不可操作。 */
+    fun isBossActive(): Boolean {
+        val root = bossActiveRoot() ?: return false
+        root.recycle()
+        return true
+    }
+
     suspend fun openBoss(): Boolean = withContext(Dispatchers.Main) {
-        val intent = context.packageManager.getLaunchIntentForPackage(BOSS_PACKAGE) ?: return@withContext false
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { context.startActivity(intent) }.isSuccess.also { if (it) delay(1200) }
+        val active = service ?: return@withContext false
+        val intent = runCatching { resolveBossLaunchIntent(active) }.getOrNull()
+            ?: return@withContext false
+        val launched = runCatching { context.startActivity(intent) }.isSuccess
+        if (launched) delay(1200)
+        awaitBossForeground(3000)
+    }
+
+    /** 唤醒 BOSS 主界面，并确认它已成为前台活动窗口。 */
+    private suspend fun ensureBossActive(): Boolean {
+        if (isBossActive()) return true
+        repeat(3) {
+            if (openBoss()) return true
+            delay(800)
+        }
+        return isBossActive()
+    }
+
+    private fun resolveBossLaunchIntent(active: BossClawAccessibilityService): Intent? {
+        val explicit = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            component = android.content.ComponentName(BOSS_PACKAGE, BOSS_WELCOME_ACTIVITY)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+        }
+        if (active.packageManager.resolveActivity(explicit, 0) != null) return explicit
+        return active.packageManager.getLaunchIntentForPackage(BOSS_PACKAGE)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+    }
+
+    private suspend fun awaitBossForeground(timeoutMs: Long): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (isBossActive()) return true
+            delay(400)
+        }
+        return isBossActive()
+    }
+
+    /** 只取 BOSS 的前台窗口根节点，避免拿后台窗口做判断。 */
+    private fun bossActiveRoot(): AccessibilityNodeInfo? {
+        val active = service ?: return null
+        val root = active.rootInActiveWindow ?: return null
+        if (root.packageName != BOSS_PACKAGE) {
+            root.recycle()
+            return null
+        }
+        return root
     }
 
     suspend fun ensureFeed(): Boolean {
-        if (scene() == PageScene.RECOMMEND_LIST) return true
-        if (service == null) return false
-        repeat(3) {
-            if (scene() == PageScene.RECOMMEND_LIST) return true
-            back()
-            delay(900)
+        val active = service ?: return false
+        if (!ensureBossActive()) return false
+        var attempts = 0
+        while (attempts < 3) {
+            val root = bossActiveRoot() ?: break
+            val hasDetail = root.findAccessibilityNodeInfosByViewId(ID_DETAIL_CHAT_BTN).isNotEmpty()
+            val hasChat = root.findAccessibilityNodeInfosByViewId(ID_CHAT_EDIT_TEXT).isNotEmpty()
+            root.recycle()
+            if (hasDetail || hasChat) {
+                back()
+                delay(900)
+                attempts++
+                continue
+            }
+            break
         }
-        switchToJobTab()
-        delay(800)
-        if (scene() != PageScene.RECOMMEND_LIST) {
-            openBoss()
-            delay(900)
+        if (!TabNavHelper.isJobTabSelected(active)) {
             switchToJobTab()
             delay(800)
+        }
+        repeat(3) {
+            if (scene() == PageScene.RECOMMEND_LIST) return true
+            delay(500)
         }
         return scene() == PageScene.RECOMMEND_LIST
     }
 
     suspend fun ensureMessageTab(): Boolean {
-        switchToMessageTab()
-        delay(900)
+        val active = service ?: return false
+        if (!ensureBossActive()) return false
+        var attempts = 0
+        while (attempts < 3) {
+            val root = bossActiveRoot() ?: break
+            val hasDetail = root.findAccessibilityNodeInfosByViewId(ID_DETAIL_CHAT_BTN).isNotEmpty()
+            val hasChat = root.findAccessibilityNodeInfosByViewId(ID_CHAT_EDIT_TEXT).isNotEmpty()
+            root.recycle()
+            if (hasDetail || hasChat) {
+                back()
+                delay(800)
+                attempts++
+                continue
+            }
+            break
+        }
+        if (!TabNavHelper.isMessageTabSelected(active)) {
+            switchToMessageTab()
+            delay(800)
+        }
+        repeat(3) {
+            if (scene() == PageScene.MESSAGE_LIST) return true
+            delay(500)
+        }
         return scene() == PageScene.MESSAGE_LIST
     }
 
@@ -136,6 +218,8 @@ class AutomationGateway(private val context: Context) {
 
     suspend fun inspectJob(card: CardAnchor): ScrapedRawJob? {
         val active = service ?: return null
+        // 点卡片之前必须先回到推荐流，否则点击坐标会落在别的页面。
+        if (!ensureFeed()) return null
         val deferred = CompletableDeferred<ScrapedRawJob?>()
         val task = InspectDetailTask(
             cardClickBounds = card.bounds,
@@ -148,6 +232,7 @@ class AutomationGateway(private val context: Context) {
 
     suspend fun scrollFeed(allowTabSwitch: Boolean = true): Boolean {
         val active = service ?: return false
+        if (!ensureFeed()) return false
         val deferred = CompletableDeferred<Boolean>()
         val task = ScrollFeedTask(
             allowTabSwitch = allowTabSwitch,
@@ -160,6 +245,7 @@ class AutomationGateway(private val context: Context) {
 
     suspend fun sendGreeting(text: String): Boolean {
         val active = service ?: return false
+        if (!ensureBossActive()) return false
         val deferred = CompletableDeferred<Boolean>()
         val task = SendGreetingTask(
             greetingText = text,
@@ -173,6 +259,8 @@ class AutomationGateway(private val context: Context) {
 
     suspend fun scanUnread(): InboxScan {
         val active = service ?: return InboxScan(null, "无障碍服务未连接")
+        // 消息巡检前先确保停在【消息】Tab，否则 RecyclerView 必然定位失败。
+        if (!ensureMessageTab()) return InboxScan(null, "未能切换到 BOSS 消息页，请确认 BOSS 已在前台")
         val deferred = CompletableDeferred<InboxScan>()
         val task = InspectMessageListTask(
             onSessionSelected = { if (!deferred.isCompleted) deferred.complete(InboxScan(it)) },
@@ -296,6 +384,8 @@ class AutomationGateway(private val context: Context) {
 
     suspend fun back() {
         val active = service ?: return
+        // 只有 BOSS 在前台时才返回，避免把返回键打到 BossClaw 自己或其他应用上。
+        if (!isBossActive()) return
         withContext(Dispatchers.Main) { active.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK) }
         delay(500)
     }
@@ -369,6 +459,9 @@ class AutomationGateway(private val context: Context) {
 
     companion object {
         const val BOSS_PACKAGE = "com.hpbr.bosszhipin"
+        private const val BOSS_WELCOME_ACTIVITY = "com.hpbr.bosszhipin.module.launcher.WelcomeActivity"
+        private const val ID_DETAIL_CHAT_BTN = "com.hpbr.bosszhipin:id/btn_chat"
+        private const val ID_CHAT_EDIT_TEXT = "com.hpbr.bosszhipin:id/editText_with_scrollbar"
         private val SALARY_REGEX = Regex("""(\d+[-~至]\d+[Kk万·元]|面议|\d+元/[天月小时])""")
         private val TAG_REGEX = Regex("""(经验|年|应届|本科|大专|硕士|博士|学历|不限|在校|先生|女士|HR|招聘|活跃|刚刚|今日)""")
         /** 职位列表卡片上的实习相关短标签，用于本地对齐 BOSS 筛选面板的时长 / 出勤档位。 */

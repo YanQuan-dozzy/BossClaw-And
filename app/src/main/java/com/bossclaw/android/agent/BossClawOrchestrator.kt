@@ -92,9 +92,8 @@ class BossClawOrchestrator(
                     return@launch
                 }
                 automator.openBoss()
-                delay(1200)
                 if (!scout.prepareFeed()) {
-                    log("探路", "未能进入职位推荐页，请确认 BOSS 停留在职位列表", "warn")
+                    log("探路", "未能进入 BOSS 职位推荐页，请确认 BOSS 已被唤醒且停留在职位列表", "warn")
                     return@launch
                 }
                 val count = processFeed(

@@ -22,7 +22,7 @@ abstract class BaseAutomationTask {
 
     protected var currentStep: Int = 0
     protected var retryCount: Int = 0
-    protected open val maxRetryCount: Int = 4
+    protected open val maxRetryCount: Int = 5
     protected open var baseTaskDurationMs: Long = 2 * 60 * 1000L
 
     @Volatile
