@@ -111,6 +111,19 @@ class EvaluatorAgent(
             greeting = "",
             status = status
         )
+        // 评估结论同步到悬浮球，让用户在 BOSS 页面就能看到当前岗位的分析。
+        AgentBus.publishAnalysis(
+            JobAnalysis(
+                company = finalJob.company,
+                title = finalJob.title,
+                fitLabel = FitLevel.from(fitLevel).label,
+                score = score,
+                reason = reason,
+                highlights = evaluation?.highlights ?: emptyList(),
+                risks = evaluation?.risks ?: emptyList(),
+                jobId = finalJob.jobId
+            )
+        )
         EvaluationOutcome(
             job = finalJob,
             verdict = FilterVerdict.PASS,

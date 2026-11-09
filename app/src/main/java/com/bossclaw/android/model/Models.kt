@@ -22,8 +22,8 @@ enum class FitLevel(val raw: String, val label: String, val minScore: Int, val m
 
 enum class RunMode(val raw: String, val label: String, val hint: String) {
     MANUAL("manual", "人工确认", "只评估不发送，开场白可复制到 BOSS 手动发送"),
-    SEMI("semi", "半自动", "仅自动发送推荐档岗位，其余进入待确认队列"),
-    AUTO("auto", "自动辅助", "推荐与匹配档均自动发送，触发风险立即暂停");
+    SEMI("semi", "半自动", "分数达到设定值自动发送，其余进入待确认队列"),
+    AUTO("auto", "自动辅助", "分数达到设定值自动发送，触发风险立即暂停");
 
     companion object {
         fun from(raw: String?): RunMode = entries.firstOrNull { it.raw == raw } ?: SEMI

@@ -1,5 +1,6 @@
 package com.bossclaw.android.ui
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -79,6 +80,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.entryProvider
@@ -86,6 +88,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.bossclaw.android.R
 import com.bossclaw.android.agent.EngineState
+import com.bossclaw.android.floating.FloatingHudService
 import com.bossclaw.android.ui.components.AppBackdrop
 import com.bossclaw.android.ui.navigation.AppKey
 import com.bossclaw.android.ui.navigation.Routes
@@ -114,6 +117,7 @@ import com.bossclaw.android.ui.theme.BossClawSpacing
 import com.bossclaw.android.ui.theme.BossClawTheme
 import com.bossclaw.android.ui.theme.LocalBossClawDark
 import com.bossclaw.android.ui.theme.softShadow
+import com.bossclaw.android.util.PermissionTools
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -123,6 +127,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewModel = ViewModelProvider(this)[BossClawViewModel::class.java]
+        restoreFloatingHud()
         setContent {
             val settings by viewModel.settings.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
@@ -161,6 +166,13 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (::viewModel.isInitialized) viewModel.refreshPermissions()
+    }
+
+    /** 悬浮球默认开启：应用启动时按设置恢复，进程被回收后无需再手动打开 */
+    private fun restoreFloatingHud() {
+        if (!viewModel.settings.value.floatingHud) return
+        if (!PermissionTools.isOverlayGranted(this)) return
+        ContextCompat.startForegroundService(this, Intent(this, FloatingHudService::class.java))
     }
 }
 
@@ -376,20 +388,10 @@ private fun FirstRunGuideDialog(onDismiss: () -> Unit, onOpenGuide: () -> Unit) 
         title = { Text("欢迎使用 BossClaw") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)) {
-                Text(
-                    text = "按下面的顺序完成准备，就可以开始第一次巡查：",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
                 OnboardingLine(1, "权限自检", "无障碍、悬浮窗、通知与后台运行")
                 OnboardingLine(2, "简历与画像", "导入简历并生成画像")
                 OnboardingLine(3, "模型服务", "填写接口与 API Key 并测试连接")
                 OnboardingLine(4, "自动化边界", "设定运行模式、单日上限与筛选")
-                Text(
-                    text = "详细步骤见侧栏「帮助 → 使用文档」，可以随时回看。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         },
         confirmButton = {

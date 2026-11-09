@@ -189,8 +189,7 @@ fun SoftButton(
             fontWeight = FontWeight.Medium,
             color = contentColor,
             maxLines = 2,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1f)
+            textAlign = TextAlign.Center
         )
     }
 }

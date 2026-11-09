@@ -12,6 +12,7 @@ import com.bossclaw.android.data.repo.ConfigRepository
 import com.bossclaw.android.domain.SafetyGuard
 import com.bossclaw.android.llm.DialogueDecision
 import com.bossclaw.android.llm.LlmGateway
+import com.bossclaw.android.model.RunMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -39,29 +40,54 @@ class CommunicatorAgent(
     ): String? = withContext(Dispatchers.IO) {
         val raw = runCatching { gateway.generateGreeting(job, profile, resume, points) }
             .onFailure { AgentBus.log("沟通", "开场白生成失败：${it.message}", "warn") }
-            .getOrNull() ?: return@withContext null
-        val greeting = SafetyGuard.ensureOpeningAnchor(SafetyGuard.sanitizeGreeting(raw), job.title)
-        SafetyGuard.greetingWarning(greeting)?.let { AgentBus.log("沟通", it, "warn") }
-        val problem = SafetyGuard.greetingProblem(greeting, resume)
-        if (problem != null) {
-            AgentBus.log("沟通", "开场白未通过校验：$problem", "warn")
-            return@withContext null
+            .getOrNull()
+        val candidate = raw?.let {
+            SafetyGuard.ensureOpeningAnchor(SafetyGuard.sanitizeGreeting(it), job.title)
         }
-        repository.saveGreeting(job.jobId, greeting, JobEntity.STATUS_MATCHED)
-        greeting
+        val problem = candidate?.let { SafetyGuard.greetingProblem(it, resume) }
+        if (candidate != null && problem == null) {
+            SafetyGuard.greetingWarning(candidate)?.let { AgentBus.log("沟通", it, "warn") }
+            repository.saveGreeting(job.jobId, candidate, JobEntity.STATUS_MATCHED)
+            return@withContext candidate
+        }
+        if (problem != null) {
+            AgentBus.log("沟通", "开场白未通过校验，改用通用开场白：$problem", "warn")
+        }
+        // 模型不可用或内容不合规时退回只表达求职意向的通用开场白，避免岗位一直卡在待确认
+        val fallback = fallbackGreeting(job.title)
+        repository.saveGreeting(job.jobId, fallback, JobEntity.STATUS_MATCHED)
+        fallback
     }
 
-    suspend fun deliver(job: JobEntity, greeting: String): Boolean = withContext(Dispatchers.Main) {
-        val sent = automator.sendGreeting(greeting)
+    private fun fallbackGreeting(jobTitle: String): String {
+        val title = jobTitle.trim().ifBlank { "该" }
+        return "您好，我想应聘贵公司的「$title」岗位，希望能进一步了解岗位的工作内容和要求，谢谢。"
+    }
+
+    /**
+     * 发送打招呼：[greeting] 为空表示使用 BOSS 官方招呼语，不生成也不填写自定义开场白。
+     */
+    suspend fun deliver(job: JobEntity, greeting: String?): Boolean = withContext(Dispatchers.Main) {
+        // 人工确认模式只评估不发送：在发送入口统一拦截，任何调用路径都不会误点「立即沟通」
+        if (configRepository.settings.value.runMode == RunMode.MANUAL) {
+            AgentBus.log("沟通", "人工确认模式不自动发送：${job.company} · ${job.title}", "info")
+            return@withContext false
+        }
+        val custom = !greeting.isNullOrBlank()
+        val sent = automator.sendGreeting(greeting.orEmpty(), useCustomGreeting = custom)
         if (!sent) {
             AgentBus.log("沟通", "打招呼发送失败：${job.company} · ${job.title}", "error")
             repository.recordLog("沟通", "打招呼发送失败：${job.company} · ${job.title}", "error", job.jobId)
             return@withContext false
         }
         repository.markDelivered(job.jobId)
-        repository.addMessage(job.jobId, ChatMessageEntity.ROLE_ME, greeting)
-        AgentBus.log("沟通", "已向 ${job.company} · ${job.title} 发出开场白", "success")
-        repository.recordLog("沟通", "已发送开场白：${job.title} @ ${job.company}", "success", job.jobId)
+        // 官方招呼的原文由平台生成，本地没有文本可存，只记录发送结果
+        if (custom) {
+            repository.addMessage(job.jobId, ChatMessageEntity.ROLE_ME, greeting.orEmpty())
+        }
+        val label = if (custom) "开场白" else "官方招呼语"
+        AgentBus.log("沟通", "已向 ${job.company} · ${job.title} 发出$label", "success")
+        repository.recordLog("沟通", "已发送$label：${job.title} @ ${job.company}", "success", job.jobId)
         true
     }
 

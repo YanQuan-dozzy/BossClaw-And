@@ -75,7 +75,6 @@ private enum class JobFilter(val label: String) {
 @Composable
 fun JobsScreen(viewModel: BossClawViewModel) {
     val jobs by viewModel.jobs.collectAsStateWithLifecycle()
-    val settings by viewModel.settings.collectAsStateWithLifecycle()
     val busyJobId by viewModel.busyJobId.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     var filter by remember { mutableStateOf(JobFilter.ALL) }
@@ -89,7 +88,7 @@ fun JobsScreen(viewModel: BossClawViewModel) {
         item {
             ScreenHeader(
                 title = "岗位",
-                subtitle = "${settings.runMode.label} · 共 ${jobs.size} 条，当前 ${visible.size} 条"
+                subtitle = "共 ${jobs.size} 条"
             )
         }
         item {
@@ -108,7 +107,7 @@ fun JobsScreen(viewModel: BossClawViewModel) {
                 BossClawCard {
                     EmptyState(
                         title = "暂无岗位",
-                        message = "开启巡查后，符合方向的岗位会出现在这里；也可以先在 BOSS 中浏览，再回到本页查看评估"
+                        message = "开启巡查后，符合方向的岗位会出现在这里"
                     )
                 }
             }
@@ -121,14 +120,6 @@ fun JobsScreen(viewModel: BossClawViewModel) {
                 onCopy = { clipboard.setText(AnnotatedString(job.greeting)) },
                 onIgnore = { viewModel.ignoreJob(job) },
                 onBlacklist = { viewModel.blacklistJob(job) }
-            )
-        }
-        item {
-            Text(
-                text = "提示：开场白超过 250 字会被平台限制，BossClaw 已自动压缩并校验事实边界",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = BossClawSpacing.sm)
             )
         }
     }

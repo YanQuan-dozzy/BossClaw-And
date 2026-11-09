@@ -64,6 +64,7 @@ import com.bossclaw.android.model.DailyStats
 import com.bossclaw.android.ui.BossClawViewModel
 import com.bossclaw.android.ui.PermissionSnapshot
 import com.bossclaw.android.ui.components.BossClawCard
+import com.bossclaw.android.ui.components.SettingSwitchRow
 import com.bossclaw.android.ui.components.StatusCell
 import com.bossclaw.android.ui.components.soft.SoftButton
 import com.bossclaw.android.ui.components.soft.SoftButtonVariant
@@ -126,17 +127,22 @@ fun WorkbenchScreen(viewModel: BossClawViewModel, onNavigate: (String) -> Unit) 
             )
         }
         Reveal(index = 1) {
-            RecommendMatchCard(
-                engineState = engineState,
-                matching = matching,
-                noKeyword = settings.collectWithoutKeyword,
-                onStart = viewModel::startRecommendMatch
+            FloatingHudCard(
+                checked = settings.floatingHud,
+                onCheckedChange = viewModel::setHudEnabled
             )
         }
         Reveal(index = 2) {
-            SystemStatusCard(permissions = permissions) { onNavigate(Routes.PERMISSIONS) }
+            RecommendMatchCard(
+                engineState = engineState,
+                matching = matching,
+                onStart = viewModel::startRecommendMatch
+            )
         }
         Reveal(index = 3) {
+            SystemStatusCard(permissions = permissions) { onNavigate(Routes.PERMISSIONS) }
+        }
+        Reveal(index = 4) {
             TodayOverview(stats = stats) { onNavigate(Routes.INSIGHTS) }
         }
     }
@@ -611,12 +617,24 @@ private fun SystemStatusCard(permissions: PermissionSnapshot, onOpen: () -> Unit
     }
 }
 
+/** 首页悬浮球开关：不用进入设置页即可开启或关闭常驻控制台。 */
+@Composable
+private fun FloatingHudCard(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    BossClawCard(padding = BossClawSpacing.md) {
+        SettingSwitchRow(
+            title = "悬浮球",
+            subtitle = "在 BOSS 上方常驻",
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+    }
+}
+
 /** BOSS 推荐匹配：无需任何输入，直接读取推荐流岗位并逐个评估入库。 */
 @Composable
 private fun RecommendMatchCard(
     engineState: EngineState,
     matching: Boolean,
-    noKeyword: Boolean,
     onStart: () -> Unit
 ) {
     val busy = matching || engineState == EngineState.RUNNING || engineState == EngineState.PAUSED
@@ -627,23 +645,12 @@ private fun RecommendMatchCard(
                 size = 42.dp,
                 tint = MaterialTheme.colorScheme.primary
             )
-            Column(modifier = Modifier.weight(1f).padding(start = BossClawSpacing.sm)) {
-                Text(
-                    text = "BOSS 推荐匹配",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = if (noKeyword) {
-                        "不输入关键词，直接评估 BOSS 推荐流里的岗位"
-                    } else {
-                        "按 BOSS 当前列表读取岗位，读取后自动评估"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
+            Text(
+                text = "BOSS 推荐匹配",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(start = BossClawSpacing.sm)
+            )
         }
         SoftButton(
             text = if (matching) "匹配中…" else "开始推荐匹配",
@@ -652,12 +659,6 @@ private fun RecommendMatchCard(
             loading = matching,
             leadingIcon = Icons.Outlined.AutoAwesome,
             modifier = Modifier.fillMaxWidth().padding(top = BossClawSpacing.sm)
-        )
-        Text(
-            text = "匹配结果进入岗位页；发送仍遵守运行模式与人工确认",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = BossClawSpacing.xs)
         )
     }
 }
@@ -708,12 +709,6 @@ private fun TodayOverview(stats: DailyStats, onOpenInsights: () -> Unit) {
                 modifier = Modifier.weight(1f)
             )
         }
-        Text(
-            text = "首次发送后会自动暂停，便于核对会话；遇到验证码会立即停手",
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.onSurfaceVariant,
-            modifier = Modifier.padding(top = BossClawSpacing.sm)
-        )
     }
 }
 

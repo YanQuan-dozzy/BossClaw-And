@@ -52,8 +52,7 @@ fun SkillsSettingsScreen(viewModel: BossClawViewModel) {
         verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
-            title = "技能库",
-            subtitle = "按作用域注入提示词，内置技能可停用、自定义技能可删除"
+            title = "技能库"
         )
         BossClawCard {
             Row(
@@ -73,11 +72,6 @@ fun SkillsSettingsScreen(viewModel: BossClawViewModel) {
                     leadingIcon = Icons.Filled.Add
                 )
             }
-            Text(
-                text = "评估、开场白、回复时按技能作用域追加约束",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             if (skills.isEmpty()) {
                 Text(
                     text = "技能加载中…",
@@ -95,11 +89,6 @@ fun SkillsSettingsScreen(viewModel: BossClawViewModel) {
                 }
             }
         }
-        Text(
-            text = "导入的自定义技能只保存在本机，随提示词一起发送给模型服务",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

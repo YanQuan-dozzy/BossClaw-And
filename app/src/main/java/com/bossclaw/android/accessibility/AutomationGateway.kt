@@ -104,20 +104,8 @@ class AutomationGateway(private val context: Context) {
     suspend fun ensureFeed(): Boolean {
         val active = service ?: return false
         if (!ensureBossActive()) return false
-        var attempts = 0
-        while (attempts < 3) {
-            val root = bossActiveRoot() ?: break
-            val hasDetail = root.findAccessibilityNodeInfosByViewId(ID_DETAIL_CHAT_BTN).isNotEmpty()
-            val hasChat = root.findAccessibilityNodeInfosByViewId(ID_CHAT_EDIT_TEXT).isNotEmpty()
-            root.recycle()
-            if (hasDetail || hasChat) {
-                back()
-                delay(900)
-                attempts++
-                continue
-            }
-            break
-        }
+        // 退出详情/会话页失败时直接放弃本轮，绝不盲目点底部区域，避免误触“继续沟通”又回到会话页
+        if (!leaveDetailOrChat(active)) return false
         if (!TabNavHelper.isJobTabSelected(active)) {
             switchToJobTab()
             delay(800)
@@ -132,20 +120,7 @@ class AutomationGateway(private val context: Context) {
     suspend fun ensureMessageTab(): Boolean {
         val active = service ?: return false
         if (!ensureBossActive()) return false
-        var attempts = 0
-        while (attempts < 3) {
-            val root = bossActiveRoot() ?: break
-            val hasDetail = root.findAccessibilityNodeInfosByViewId(ID_DETAIL_CHAT_BTN).isNotEmpty()
-            val hasChat = root.findAccessibilityNodeInfosByViewId(ID_CHAT_EDIT_TEXT).isNotEmpty()
-            root.recycle()
-            if (hasDetail || hasChat) {
-                back()
-                delay(800)
-                attempts++
-                continue
-            }
-            break
-        }
+        if (!leaveDetailOrChat(active)) return false
         if (!TabNavHelper.isMessageTabSelected(active)) {
             switchToMessageTab()
             delay(800)
@@ -155,6 +130,37 @@ class AutomationGateway(private val context: Context) {
             delay(500)
         }
         return scene() == PageScene.MESSAGE_LIST
+    }
+
+    /**
+     * 从岗位详情或单聊页返回到带底部 Tab 的页面。
+     * 连续返回后仍停留在详情/会话页时返回 false：此时页面底部是“立即沟通/发送”等按钮，
+     * 继续点击 Tab 坐标会再次进入会话，形成详情页与会话页来回跳。
+     */
+    private suspend fun leaveDetailOrChat(active: BossClawAccessibilityService): Boolean {
+        var attempts = 0
+        while (attempts < 3) {
+            val root = bossActiveRoot() ?: break
+            val stuck = hasDetailOrChat(root)
+            root.recycle()
+            if (!stuck) return true
+            back()
+            delay(900)
+            attempts++
+        }
+        val root = bossActiveRoot() ?: return true
+        val stuck = hasDetailOrChat(root)
+        root.recycle()
+        return !stuck
+    }
+
+    private fun hasDetailOrChat(root: AccessibilityNodeInfo): Boolean {
+        val detailNodes = root.findAccessibilityNodeInfosByViewId(ID_DETAIL_CHAT_BTN)
+        val chatNodes = root.findAccessibilityNodeInfosByViewId(ID_CHAT_EDIT_TEXT)
+        val present = !detailNodes.isNullOrEmpty() || !chatNodes.isNullOrEmpty()
+        detailNodes?.forEach { it.recycle() }
+        chatNodes?.forEach { it.recycle() }
+        return present
     }
 
     suspend fun switchToJobTab(): Boolean = suspendTab { success, fail -> TabNavHelper.switchToJobTab(service ?: return@suspendTab false, success, fail) }
@@ -206,7 +212,9 @@ class AutomationGateway(private val context: Context) {
                         .filter { CARD_TAG_REGEX.containsMatchIn(it) }
                         .distinct()
                         .take(4)
-                    anchors.add(CardAnchor(Rect(bounds), title, company, salary, tags))
+                    // 卡片中心可能压在「立即沟通」按钮上，记录职位名区域作为打开详情的点击锚点
+                    val titleBounds = leafs.firstOrNull { it.text == title }?.bounds?.let { Rect(it) }
+                    anchors.add(CardAnchor(Rect(bounds), title, company, salary, tags, titleBounds))
                 }
                 card.recycle()
             }
@@ -221,13 +229,24 @@ class AutomationGateway(private val context: Context) {
         // 点卡片之前必须先回到推荐流，否则点击坐标会落在别的页面。
         if (!ensureFeed()) return null
         val deferred = CompletableDeferred<ScrapedRawJob?>()
+        // 点击锚点优先取职位名区域，兜底取卡片上半区：卡片下半区可能是「立即沟通」按钮
+        val clickBounds = card.titleBounds ?: Rect(
+            card.bounds.left,
+            card.bounds.top,
+            card.bounds.right,
+            card.bounds.top + card.bounds.height() / 2
+        )
         val task = InspectDetailTask(
-            cardClickBounds = card.bounds,
+            cardClickBounds = clickBounds,
             onJobScraped = { if (!deferred.isCompleted) deferred.complete(it) },
             onError = { if (!deferred.isCompleted) deferred.complete(null) }
         )
         execute(active, task)
-        return withTimeoutOrNull(150_000) { deferred.await() }
+        return withTimeoutOrNull(150_000) { deferred.await() } ?: run {
+            // 超时后立即停掉残留任务，避免旧任务继续点击页面与后续流程抢页面
+            active.stopCurrentTask()
+            null
+        }
     }
 
     suspend fun scrollFeed(allowTabSwitch: Boolean = true): Boolean {
@@ -243,18 +262,22 @@ class AutomationGateway(private val context: Context) {
         return withTimeoutOrNull(150_000) { deferred.await() } ?: false
     }
 
-    suspend fun sendGreeting(text: String): Boolean {
+    suspend fun sendGreeting(text: String, useCustomGreeting: Boolean = true): Boolean {
         val active = service ?: return false
         if (!ensureBossActive()) return false
         val deferred = CompletableDeferred<Boolean>()
         val task = SendGreetingTask(
             greetingText = text,
+            useCustomGreeting = useCustomGreeting,
             autoNavigateBack = true,
             onComplete = { if (!deferred.isCompleted) deferred.complete(true) },
             onError = { if (!deferred.isCompleted) deferred.complete(false) }
         )
         execute(active, task)
-        return withTimeoutOrNull(150_000) { deferred.await() } ?: false
+        return withTimeoutOrNull(150_000) { deferred.await() } ?: run {
+            active.stopCurrentTask()
+            false
+        }
     }
 
     suspend fun scanUnread(): InboxScan {
@@ -268,7 +291,10 @@ class AutomationGateway(private val context: Context) {
             onError = { if (!deferred.isCompleted) deferred.complete(InboxScan(null, it)) }
         )
         execute(active, task)
-        return withTimeoutOrNull(120_000) { deferred.await() } ?: InboxScan(null, "扫描未读超时")
+        return withTimeoutOrNull(120_000) { deferred.await() } ?: run {
+            active.stopCurrentTask()
+            InboxScan(null, "扫描未读超时")
+        }
     }
 
     /**
@@ -303,7 +329,10 @@ class AutomationGateway(private val context: Context) {
             onError = { if (!deferred.isCompleted) deferred.complete(false) }
         )
         execute(active, task)
-        val opened = withTimeoutOrNull(90_000) { deferred.await() } ?: false
+        val opened = withTimeoutOrNull(90_000) { deferred.await() } ?: run {
+            active.stopCurrentTask()
+            false
+        }
         if (opened) delay(900)
         return opened
     }
@@ -319,7 +348,10 @@ class AutomationGateway(private val context: Context) {
             onError = { if (!deferred.isCompleted) deferred.complete(false) }
         )
         execute(active, task)
-        return withTimeoutOrNull(150_000) { deferred.await() } ?: false
+        return withTimeoutOrNull(150_000) { deferred.await() } ?: run {
+            active.stopCurrentTask()
+            false
+        }
     }
 
     suspend fun readChatBubbles(): List<ChatBubble> = withContext(Dispatchers.Main) {

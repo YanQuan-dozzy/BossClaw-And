@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bossclaw.android.data.pref.AppSettings
 import com.bossclaw.android.domain.HrActivity
 import com.bossclaw.android.domain.JobFilter
 import com.bossclaw.android.model.RunMode
@@ -49,8 +50,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
         verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
-            title = "自动化边界",
-            subtitle = "先划定边界，再交给自动化"
+            title = "自动化边界"
         )
 
         BossClawCard {
@@ -83,9 +83,22 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 }
             }
 
+            BossClawNumberField(
+                value = settings.autoSendMinScore,
+                onValueChange = { value ->
+                    viewModel.updateSettings { it.copy(autoSendMinScore = value) }
+                },
+                label = "自动运行分数（分，65–100）",
+                hint = "达到该分数自动发送，低于则待确认",
+                minValue = AppSettings.MIN_AUTO_SEND_SCORE,
+                maxValue = AppSettings.MAX_AUTO_SEND_SCORE,
+                placeholder = "如 81",
+                modifier = Modifier.padding(top = BossClawSpacing.sm)
+            )
+
             SliderRow(
                 title = "岗位间隔",
-                hint = "自定义每个岗位之间的等待秒数，执行时会自动加入随机抖动",
+                hint = "执行时自动加入随机抖动",
                 value = settings.jobIntervalSeconds,
                 range = 10..600,
                 step = 5,
@@ -102,6 +115,12 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 color = MaterialTheme.colorScheme.onSurface
             )
             SettingSwitchRow(
+                title = "自定义打招呼",
+                subtitle = "开启后使用 AI 生成的开场白，关闭时使用 BOSS 官方招呼语",
+                checked = settings.customGreeting,
+                onCheckedChange = { enabled -> viewModel.updateSettings { it.copy(customGreeting = enabled) } }
+            )
+            SettingSwitchRow(
                 title = "自动回复",
                 subtitle = "仅对安全可控的会话生成简短回复",
                 checked = settings.autoReply,
@@ -109,7 +128,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
             )
             SettingSwitchRow(
                 title = "悬浮球控制台",
-                subtitle = "在 BOSS 上方显示悬浮球，点开即可开始、暂停或急停",
+                subtitle = "在 BOSS 上方常驻",
                 checked = settings.floatingHud,
                 onCheckedChange = { viewModel.setHudEnabled(it) }
             )
@@ -129,15 +148,9 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
             )
             SettingSwitchRow(
                 title = "无关键字匹配（BOSS 推荐流）",
-                subtitle = "直接读取 BOSS「推荐」流，不再按同一关键词反复搜索；账号内求职意向需先完善",
+                subtitle = "直接读取 BOSS「推荐」流",
                 checked = settings.collectWithoutKeyword,
                 onCheckedChange = { enabled -> viewModel.updateSettings { it.copy(collectWithoutKeyword = enabled) } }
-            )
-            Text(
-                text = "开启后翻页只向下加载，不自动切换到「最新」流；关闭时按普通职位列表采集",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = BossClawSpacing.xxs)
             )
         }
 
@@ -148,7 +161,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "填写你愿意提供给 HR 的真实信息，AI 跟聊与手动回复都会引用；留空则不承诺这类内容",
+                text = "只填真实信息，AI 只引用这里的内容",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = BossClawSpacing.xxs)
@@ -164,23 +177,16 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 maxLines = 8,
                 modifier = Modifier.padding(top = BossClawSpacing.sm)
             )
-            Text(
-                text = "只写真实信息：AI 不会补充未填写的薪资、到岗或面试安排",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = BossClawSpacing.xs)
-            )
         }
 
         BossClawCard {
             Text(
-                text = "筛选条件（对齐 BOSS 筛选面板）",
+                text = "筛选条件",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "实习时长、每周出勤可自由填写具体数值；BOSS活跃状态、学历、经验按 BOSS「筛选」面板同名同序的档位，由本地按卡片与详情判定。" +
-                    "城市、行业、公司规模、融资等平台筛选仍请在 BOSS 顶部「实习 / 筛选」里手动点好，软件不代点平台按钮",
+                text = "平台内置筛选请在 BOSS 内手动设置",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = BossClawSpacing.xxs)
@@ -191,7 +197,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                     viewModel.updateSettings { it.copy(internshipMinMonths = value) }
                 },
                 label = "实习时长（个月，0=不限）",
-                hint = "可自由填写任意月数；卡片未标注时长时不判定",
+                hint = "卡片未标注时长时不判定",
                 minValue = 0,
                 maxValue = 60,
                 placeholder = "如 3",
@@ -203,7 +209,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                     viewModel.updateSettings { it.copy(weeklyMinDays = value) }
                 },
                 label = "每周出勤天数（0=不限）",
-                hint = "按周出勤下限判定；可自由填写 1–7 天",
+                hint = "1–7 天",
                 minValue = 0,
                 maxValue = 7,
                 placeholder = "如 4",
@@ -231,7 +237,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 onSelect = { raw ->
                     viewModel.updateSettings { it.copy(degreeRequirement = raw) }
                 },
-                hint = "跟随画像：岗位要求高于你的学历才跳过；指定档位时，高于该档的岗位直接跳过",
+                hint = "高于画像学历的岗位跳过",
                 modifier = Modifier.padding(top = BossClawSpacing.xs)
             )
             BossClawDropdown(
@@ -241,7 +247,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 onSelect = { raw ->
                     viewModel.updateSettings { it.copy(experienceCeiling = raw) }
                 },
-                hint = "高于所选档位经验要求的岗位跳过；不限=不做经验过滤",
+                hint = "高于所选档位的岗位跳过",
                 modifier = Modifier.padding(top = BossClawSpacing.xs)
             )
 
@@ -291,7 +297,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
             )
             SliderRow(
                 title = "每日投递上限",
-                hint = "硬上限 150 次/天",
+                hint = "上限 150 次/天",
                 value = settings.maxDailyGreetings,
                 range = 1..150,
                 step = 1,
@@ -301,14 +307,14 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
             }
             SettingSwitchRow(
                 title = "薪资按日薪比较",
-                subtitle = "开启后按「元/天」比较（适合实习、兼职）；关闭则按「K/月」比较，两种口径各存各的值",
+                subtitle = "开启后按元/天比较，否则按 K/月",
                 checked = settings.salaryDaily,
                 onCheckedChange = { enabled -> viewModel.updateSettings { it.copy(salaryDaily = enabled) } }
             )
             if (settings.salaryDaily) {
                 SliderRow(
                     title = "最低日薪",
-                    hint = "低于该日薪的岗位跳过；0=不限",
+                    hint = "低于该值跳过，0=不限",
                     value = settings.minDailySalary,
                     range = 0..2000,
                     step = 10,
@@ -326,7 +332,7 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                         }
                     },
                     label = "最低月薪（K/月，0=不限）",
-                    hint = "低于该月薪的岗位跳过；0=按画像里的期望薪资",
+                    hint = "0=按画像期望薪资",
                     minValue = 0,
                     maxValue = 500,
                     placeholder = "如 8",
@@ -334,12 +340,6 @@ fun AutomationSettingsScreen(viewModel: BossClawViewModel) {
                 )
             }
         }
-
-        Text(
-            text = "边界规则优先于模型判断：命中黑名单、城市或关键词时会直接跳过，不会交给模型解释",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

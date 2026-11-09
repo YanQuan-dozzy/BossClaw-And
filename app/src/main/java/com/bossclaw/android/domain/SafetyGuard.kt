@@ -2,8 +2,8 @@ package com.bossclaw.android.domain
 
 object SafetyGuard {
 
-    const val GREETING_MIN_CHARS = 120
-    const val GREETING_TARGET_CHARS = 150
+    const val GREETING_MIN_CHARS = 50
+    const val GREETING_TARGET_CHARS = 80
     const val MAX_GREETING_LENGTH = 250
     const val MAX_REPLY_LENGTH = 250
     const val REPLY_MIN_LENGTH = 8
@@ -46,10 +46,10 @@ object SafetyGuard {
         return head
     }
 
-    /** 补上统一的求职者开场锚点；模型已给出等价开头时保持不变。 */
+    /** 模型已给出礼貌问候时不改写，仅补齐完全缺失开场白的文本。 */
     fun ensureOpeningAnchor(greeting: String, jobTitle: String): String {
         val text = greeting.trim()
-        if (text.startsWith("您好，我想应聘")) return text
+        if (text.startsWith("您好") || text.startsWith("你好")) return text
         val title = jobTitle.trim().ifBlank { "该" }
         return "$OPENING_PREFIX${title}岗位。$text"
     }

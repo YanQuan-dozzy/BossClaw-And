@@ -96,7 +96,7 @@ private fun ConversationList(
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = BossClawSpacing.screen)) {
         ScreenHeader(
             title = "沟通",
-            subtitle = "${conversations.size} 个会话 · 自动回复仅处理安全可控的对话"
+            subtitle = "${conversations.size} 个会话"
         ) {
             TextButton(onClick = onScan) {
                 Icon(Icons.Filled.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -107,7 +107,7 @@ private fun ConversationList(
             BossClawCard(modifier = Modifier.padding(top = BossClawSpacing.sm)) {
                 EmptyState(
                     title = "暂无会话",
-                    message = "投递成功后，HR 的回复会在这里汇总；也可以点击右上角立即扫描 BOSS 消息"
+                    message = "投递后 HR 的回复会汇总到这里"
                 )
             }
             return@Column
@@ -240,15 +240,6 @@ private fun ConversationDetail(
             verticalArrangement = Arrangement.spacedBy(BossClawSpacing.xs)
         ) {
             items(messages, key = { it.id }) { message -> Bubble(message) }
-            item {
-                Text(
-                    text = "本地保存的会话记录，仅用于生成回复与复盘",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = BossClawSpacing.sm)
-                )
-            }
         }
 
         ReplyComposer(
@@ -340,12 +331,6 @@ private fun ReplyComposer(
                 )
             }
         }
-        Text(
-            text = "发送前会先在 BOSS 消息列表定位该岗位的会话；找不到即中止，不会发给其他人",
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.onSurfaceVariant,
-            modifier = Modifier.padding(top = BossClawSpacing.xxs)
-        )
     }
 }
 

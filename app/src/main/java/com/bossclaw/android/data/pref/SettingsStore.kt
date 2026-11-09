@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class AppSettings(
     val runMode: RunMode = RunMode.SEMI,
+    /** 自动运行门槛：评分达到该值才自动发送，低于则进入待确认队列；下限固定为匹配档，避免自动发送谨慎或不推荐岗位 */
+    val autoSendMinScore: Int = DEFAULT_AUTO_SEND_SCORE,
     /** 岗位投递间隔（秒），由用户自定义；执行时自动加入随机抖动 */
     val jobIntervalSeconds: Int = 20,
     val maxDailyGreetings: Int = 120,
@@ -35,16 +37,27 @@ data class AppSettings(
     /** 无关键字匹配：直接读取 BOSS「推荐」流，不再按岗位关键词翻找，避免同词反复重试 */
     val collectWithoutKeyword: Boolean = true,
     val autoReply: Boolean = true,
+    /** 打招呼方式：true 用 AI 生成的自定义开场白，false 直接使用 BOSS 官方招呼语 */
+    val customGreeting: Boolean = false,
     /** 用户愿意提供给 HR 的真实信息（薪资期望、可面试时间、到岗时间等），AI 跟聊只引用这里的内容 */
     val communicationInfo: String = "",
-    val floatingHud: Boolean = false,
+    val floatingHud: Boolean = true,
     val notifications: Boolean = true,
     val themeMode: String = "system",
     val paused: Boolean = false,
     val firstDeliveryDone: Boolean = false,
     /** 首次使用引导是否已看过；关闭后不再自动弹出，可随时从侧栏打开使用文档 */
     val onboardingSeen: Boolean = false
-)
+) {
+    companion object {
+        const val DEFAULT_AUTO_SEND_SCORE = 70
+        /** 旧版本默认门槛，升级时用于识别未手动修改过的安装 */
+        const val LEGACY_AUTO_SEND_SCORE = 81
+        /** 低于匹配档（65 分）属于谨慎或不推荐，不允许自动发送 */
+        const val MIN_AUTO_SEND_SCORE = 65
+        const val MAX_AUTO_SEND_SCORE = 100
+    }
+}
 
 class SettingsStore(context: Context) {
 
@@ -52,8 +65,26 @@ class SettingsStore(context: Context) {
     private val _settings = MutableStateFlow(load())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
-    private fun load(): AppSettings = AppSettings(
+    private fun load(): AppSettings {
+        // 悬浮球改为默认开启：旧安装已写入 false 时只在首次升级时纠正一次，之后尊重用户手动关闭
+        if (!prefs.getBoolean(KEY_FLOATING_HUD_MIGRATED, false)) {
+            prefs.edit()
+                .putBoolean(KEY_FLOATING_HUD, true)
+                .putBoolean(KEY_FLOATING_HUD_MIGRATED, true)
+                .apply()
+        }
+        // 自动发送门槛默认值下调到匹配档：未手动改过的旧安装一次性迁移，避免岗位一直停在待确认
+        if (!prefs.getBoolean(KEY_AUTO_SEND_SCORE_MIGRATED, false)) {
+            val stored = prefs.getInt(KEY_AUTO_SEND_SCORE, AppSettings.LEGACY_AUTO_SEND_SCORE)
+            if (stored == AppSettings.LEGACY_AUTO_SEND_SCORE) {
+                prefs.edit().putInt(KEY_AUTO_SEND_SCORE, AppSettings.DEFAULT_AUTO_SEND_SCORE).apply()
+            }
+            prefs.edit().putBoolean(KEY_AUTO_SEND_SCORE_MIGRATED, true).apply()
+        }
+        return AppSettings(
         runMode = RunMode.from(prefs.getString(KEY_RUN_MODE, null)),
+        autoSendMinScore = prefs.getInt(KEY_AUTO_SEND_SCORE, AppSettings.DEFAULT_AUTO_SEND_SCORE)
+            .coerceIn(AppSettings.MIN_AUTO_SEND_SCORE, AppSettings.MAX_AUTO_SEND_SCORE),
         jobIntervalSeconds = prefs.getInt(KEY_JOB_INTERVAL, 20),
         maxDailyGreetings = prefs.getInt(KEY_DAILY_GREETINGS, 120),
         minSalaryK = prefs.getInt(KEY_MIN_SALARY, 0),
@@ -73,14 +104,16 @@ class SettingsStore(context: Context) {
         filterCity = prefs.getBoolean(KEY_FILTER_CITY, true),
         collectWithoutKeyword = prefs.getBoolean(KEY_COLLECT_WITHOUT_KEYWORD, true),
         autoReply = prefs.getBoolean(KEY_AUTO_REPLY, true),
+        customGreeting = prefs.getBoolean(KEY_CUSTOM_GREETING, false),
         communicationInfo = prefs.getString(KEY_COMMUNICATION_INFO, "") ?: "",
-        floatingHud = prefs.getBoolean(KEY_FLOATING_HUD, false),
+        floatingHud = prefs.getBoolean(KEY_FLOATING_HUD, true),
         notifications = prefs.getBoolean(KEY_NOTIFICATIONS, true),
         themeMode = prefs.getString(KEY_THEME, "system") ?: "system",
         paused = prefs.getBoolean(KEY_PAUSED, false),
         firstDeliveryDone = prefs.getBoolean(KEY_FIRST_DELIVERY, false),
         onboardingSeen = prefs.getBoolean(KEY_ONBOARDING_SEEN, false)
-    )
+        )
+    }
 
     fun update(transform: (AppSettings) -> AppSettings): AppSettings {
         val next = transform(_settings.value)
@@ -96,6 +129,7 @@ class SettingsStore(context: Context) {
     private fun persist(settings: AppSettings) {
         prefs.edit()
             .putString(KEY_RUN_MODE, settings.runMode.raw)
+            .putInt(KEY_AUTO_SEND_SCORE, settings.autoSendMinScore)
             .putInt(KEY_JOB_INTERVAL, settings.jobIntervalSeconds)
             .putInt(KEY_DAILY_GREETINGS, settings.maxDailyGreetings)
             .putInt(KEY_MIN_SALARY, settings.minSalaryK)
@@ -115,6 +149,7 @@ class SettingsStore(context: Context) {
             .putBoolean(KEY_FILTER_CITY, settings.filterCity)
             .putBoolean(KEY_COLLECT_WITHOUT_KEYWORD, settings.collectWithoutKeyword)
             .putBoolean(KEY_AUTO_REPLY, settings.autoReply)
+            .putBoolean(KEY_CUSTOM_GREETING, settings.customGreeting)
             .putString(KEY_COMMUNICATION_INFO, settings.communicationInfo)
             .putBoolean(KEY_FLOATING_HUD, settings.floatingHud)
             .putBoolean(KEY_NOTIFICATIONS, settings.notifications)
@@ -132,6 +167,8 @@ class SettingsStore(context: Context) {
 
     private companion object {
         const val KEY_RUN_MODE = "run_mode"
+        const val KEY_AUTO_SEND_SCORE = "auto_send_min_score"
+        const val KEY_AUTO_SEND_SCORE_MIGRATED = "auto_send_score_default_migrated"
         const val KEY_JOB_INTERVAL = "job_interval_seconds"
         const val KEY_DAILY_GREETINGS = "daily_greetings"
         const val KEY_MIN_SALARY = "min_salary"
@@ -151,8 +188,10 @@ class SettingsStore(context: Context) {
         const val KEY_FILTER_CITY = "filter_city"
         const val KEY_COLLECT_WITHOUT_KEYWORD = "collect_without_keyword"
         const val KEY_AUTO_REPLY = "auto_reply"
+        const val KEY_CUSTOM_GREETING = "custom_greeting"
         const val KEY_COMMUNICATION_INFO = "communication_info"
         const val KEY_FLOATING_HUD = "floating_hud"
+        const val KEY_FLOATING_HUD_MIGRATED = "floating_hud_default_migrated"
         const val KEY_NOTIFICATIONS = "notifications"
         const val KEY_THEME = "theme"
         const val KEY_PAUSED = "paused"

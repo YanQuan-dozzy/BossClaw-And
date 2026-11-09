@@ -56,19 +56,13 @@ fun ModelSettingsScreen(viewModel: BossClawViewModel) {
         verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
-            title = "模型服务",
-            subtitle = "兼容 OpenAI 协议与 Anthropic Messages"
+            title = "模型服务"
         )
         ModelCard(
             initial = viewModel.llmConfig(),
             testing = testing,
             onSave = { config -> viewModel.saveLlmConfig(config) },
             onTest = { config -> viewModel.testConnection(config) }
-        )
-        Text(
-            text = "接口密钥使用 Android Keystore 加密后存于本机；测试连接只发送一条极短请求",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -116,17 +110,11 @@ private fun ModelCard(
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Text(
-            text = "选择预设后仍可手动修改地址与模型名",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         BossClawDropdown(
             label = "服务商预设",
             selectedValue = provider,
             options = LlmPresets.all.map { it.id to it.name },
-            hint = "选择预设后仍可手动修改地址与模型名",
             onSelect = { id ->
                 val preset = LlmPresets.find(id)
                 provider = preset.id
@@ -186,18 +174,12 @@ private fun ModelCard(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = BossClawSpacing.md)
         )
-        Text(
-            text = "按模型实际窗口选择；填大超出窗口会请求失败，填小会截断长简历",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = BossClawSpacing.xxs)
-        )
         BossClawDropdown(
             label = "窗口大小",
             selectedValue = if (customWindow) CUSTOM_WINDOW else contextWindow.toString(),
             options = ContextBudget.WINDOW_PRESETS.map { it.first.toString() to it.second } +
                 (CUSTOM_WINDOW to "自定义…"),
-            hint = "按模型实际窗口选择；也可选「自定义…」按 K 为单位填写窗口大小",
+            hint = "填大超出模型窗口会请求失败",
             onSelect = { raw ->
                 if (raw == CUSTOM_WINDOW) {
                     customWindow = true
@@ -214,7 +196,7 @@ private fun ModelCard(
                 value = contextWindow / 1_000,
                 onValueChange = { contextWindow = ContextBudget.normalizeWindow(it * 1_000) },
                 label = "自定义窗口（K tokens）",
-                hint = "范围 ${ContextBudget.MIN_WINDOW / 1_000}K–${ContextBudget.MAX_WINDOW / 1_000}K；填大超出模型窗口会请求失败",
+                hint = "范围 ${ContextBudget.MIN_WINDOW / 1_000}K–${ContextBudget.MAX_WINDOW / 1_000}K",
                 minValue = ContextBudget.MIN_WINDOW / 1_000,
                 maxValue = ContextBudget.MAX_WINDOW / 1_000,
                 placeholder = "如 128",

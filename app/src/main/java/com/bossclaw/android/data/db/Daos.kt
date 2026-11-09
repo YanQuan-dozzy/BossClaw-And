@@ -17,6 +17,9 @@ interface JobDao {
     @Query("SELECT * FROM jobs WHERE title = :title AND company = :company LIMIT 1")
     suspend fun findSimilar(title: String, company: String): JobEntity?
 
+    @Query("SELECT * FROM jobs WHERE company = :company")
+    suspend fun byCompany(company: String): List<JobEntity>
+
     @Query("SELECT * FROM jobs ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<JobEntity>>
 

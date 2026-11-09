@@ -98,7 +98,6 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
     ) {
         ScreenHeader(
             title = "简历中心",
-            subtitle = "事实优先：所有开场白只引用这里的真实经历",
             trailing = {
                 if (busy) {
                     CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
@@ -135,8 +134,7 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
                 }
             }
             val preview = if (folded) {
-                editor.take(PREVIEW_CHARS).trimEnd() +
-                    "\n\n…（全文共 ${editor.length} 字，已折叠预览；保存与生成画像仍使用完整原文）"
+                editor.take(PREVIEW_CHARS).trimEnd() + "\n\n…（已折叠，全文 ${editor.length} 字）"
             } else {
                 editor
             }
@@ -147,13 +145,8 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
                     .fillMaxWidth()
                     .padding(top = BossClawSpacing.sm)
                     .heightIn(min = 180.dp),
-                label = if (folded) "简历原文（纯文本预览）" else "简历原文（纯文本）",
-                placeholder = "支持 PDF / DOCX / TXT / MD；图片、扫描件等无法解析的文件不会导入，可直接粘贴正文",
-                supportingText = if (folded) {
-                    "预览已截断，保存原文与生成画像仍使用完整内容"
-                } else {
-                    "单次编辑最多 ${ResumeTools.MAX_RESUME_CHARS} 字；超长文本会自动折叠以保证输入流畅"
-                },
+                label = if (folded) "简历原文（预览）" else "简历原文",
+                placeholder = "支持 PDF / DOCX / TXT / MD，也可直接粘贴正文",
                 readOnly = folded,
                 singleLine = false,
                 minLines = 8,
@@ -161,7 +154,7 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
             )
             if (editor.length > PREVIEW_CHARS) {
                 TextButton(onClick = { expandEditor = !expandEditor }) {
-                    Text(if (expandEditor) "收起为预览（更流畅）" else "展开编辑全文（内容较长，输入可能变慢）")
+                    Text(if (expandEditor) "收起为预览" else "展开编辑全文")
                 }
             }
             Row(
@@ -186,22 +179,16 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
 
         BossClawCard {
             Text(
-                text = "候选人画像（可编辑草稿）",
+                text = "候选人画像",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "生成后可直接修改；技能、优势、目标岗位与城市用标签输入，点 × 删除",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp)
             )
 
             val current = profile
             if (current == null) {
                 EmptyState(
                     title = "尚未生成画像",
-                    message = "导入简历后点击“生成画像”，AI 会抽取年限、技能与目标方向，失败时自动回退本地解析"
+                    message = "导入简历后点「生成画像」"
                 )
             } else {
                 ProfileForm(profile = current) { name, years, education, skills, strengths, summary, roles, cities, salary ->
@@ -229,12 +216,6 @@ fun ResumeScreen(viewModel: BossClawViewModel) {
             },
             onToggle = { id, enabled -> viewModel.toggleDirection(id, enabled) },
             onDelete = { id -> viewModel.deleteDirection(id) }
-        )
-
-        Text(
-            text = "隐私说明：简历与对话仅保存在本机加密存储中，只有评估岗位时必要的片段会随提示词发送给你配置的模型服务",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -279,7 +260,7 @@ private fun ProfileForm(
         FormField("学历", education) { education = it }
         ChipListField(
             label = "技能",
-            hint = "输入后回车或点 + 添加，点 × 删除",
+            hint = "如：Kotlin、Python",
             values = skills,
             onChange = { skills = it }
         )
@@ -469,11 +450,6 @@ private fun DirectionsCard(
                 Text(if (showForm) "取消" else "添加")
             }
         }
-        Text(
-            text = "方向用于圈定岗位关键词，评估时会优先匹配已启用的方向",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         if (showForm) {
             var name by remember { mutableStateOf("") }
@@ -502,7 +478,7 @@ private fun DirectionsCard(
         if (directions.isEmpty()) {
             EmptyState(
                 title = "还没有方向",
-                message = "添加一个方向，例如「AI 产品经理 / 上海 / 25K 起」，BossClaw 会据此筛选岗位"
+                message = "添加方向后，会据此筛选岗位"
             )
         } else {
             directions.forEach { direction ->

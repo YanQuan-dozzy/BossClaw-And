@@ -14,11 +14,16 @@ object SceneDetector {
 
     private val RISK_TEXTS = listOf(
         "访问过于频繁", "操作过于频繁", "操作频繁", "请求过于频繁",
-        "账号异常", "账户异常", "账号冻结", "账户冻结", "账号封禁", "账户封禁", "账号受限", "违规行为",
+        "账号异常", "账户异常", "账号冻结", "账户冻结", "账号封禁", "账户封禁", "账号受限",
         "暂停打招呼功能", "已达今日沟通上限",
         "安全验证", "滑动验证", "滑块验证", "点选验证", "图形验证", "行为验证", "拖动滑块", "人脸识别",
         "环境异常", "检测到异常环境", "非浏览器环境",
         "请先登录", "登录已过期", "重新登录", "登录失效", "会话失效"
+    )
+
+    /** 详情页底部的平台安全提示属于固定文案，其中包含“违法违规行为”等词，不能当成风控信号 */
+    private val DISCLAIMER_TEXTS = listOf(
+        "求职谨防诈骗", "严厉打击虚假招聘", "如遇招聘方以任何名义索要财物", "请立即举报"
     )
 
     fun detect(root: AccessibilityNodeInfo?): PageScene {
@@ -45,9 +50,14 @@ object SceneDetector {
     }
 
     private fun hasText(root: AccessibilityNodeInfo, text: String): Boolean {
-        val nodes = root.findAccessibilityNodeInfosByText(text)
-        val exists = !nodes.isNullOrEmpty()
-        nodes?.forEach { it.recycle() }
-        return exists
+        val nodes = root.findAccessibilityNodeInfosByText(text) ?: return false
+        var matched = false
+        for (node in nodes) {
+            val content = node.text?.toString().orEmpty()
+            // 平台安全提示整段跳过，避免固定文案触发风控暂停
+            if (DISCLAIMER_TEXTS.none { content.contains(it) }) matched = true
+            node.recycle()
+        }
+        return matched
     }
 }

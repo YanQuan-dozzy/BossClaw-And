@@ -21,7 +21,9 @@ data class CardAnchor(
     val company: String,
     val salaryText: String = "",
     /** 卡片上读到的短标签（如「4天/周」「4个月」），用于对齐 BOSS 筛选面板的时长与出勤档位 */
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    /** 职位名节点的屏幕区域：点击这里进入详情，避开卡片上的「立即沟通」按钮 */
+    val titleBounds: Rect? = null
 ) {
     fun fingerprint(): String = ScrapedRawJob.fingerprint(title, company, salaryText)
 }

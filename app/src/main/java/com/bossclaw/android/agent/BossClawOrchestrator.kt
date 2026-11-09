@@ -38,6 +38,16 @@ class BossClawOrchestrator(
     private var lastQuotaNotice = 0L
     private var lastConfigNotice = 0L
 
+    /** 本轮巡查是否顺带处理消息列表；悬浮球启动时只评估岗位与投递，不切消息页 */
+    private var inboxEnabled = true
+
+    /**
+     * 本次巡查已进入过的岗位卡片（公司 + 岗位名前缀）。
+     * 列表卡片标题会被平台截断，与详情页全名不一定相同，仅靠数据库精确匹配会反复把同一岗位
+     * 重新走一遍详情与会话页；这里再做一层会话内去重，避免页面来回跳。
+     */
+    private val handledCardKeys = mutableSetOf<String>()
+
     private val _recommendMatching = MutableStateFlow(false)
 
     /** 首页推荐匹配是否正在执行，用于按钮显示进度。 */
@@ -62,12 +72,22 @@ class BossClawOrchestrator(
         delay(wait.coerceAtLeast(500L))
     }
 
-    fun start(once: Boolean = false): Boolean {
-        if (isRunning) return false
+    fun start(once: Boolean = false, inbox: Boolean = true): Boolean {
+        if (isRunning || inboxJob?.isActive == true) return false
         if (!canStart()) return false
+        inboxEnabled = inbox
+        handledCardKeys.clear()
         configRepository.setPaused(false)
         AgentBus.setState(EngineState.RUNNING)
-        log("调度", if (once) "开始试跑一轮" else "BossClaw 开始巡查", "info")
+        log(
+            "调度",
+            when {
+                once -> "开始试跑一轮"
+                inbox -> "BossClaw 开始巡查"
+                else -> "BossClaw 开始岗位巡查（不处理消息列表）"
+            },
+            "info"
+        )
         loopJob = scope.launch { runLoop(once) }
         return true
     }
@@ -77,8 +97,9 @@ class BossClawOrchestrator(
      * 打开 BOSS 推荐流后一次性评估若干岗位即结束，不影响长时间巡查。
      */
     fun startRecommendMatch(): Boolean {
-        if (isRunning) return false
+        if (isRunning || inboxJob?.isActive == true) return false
         if (!canStart()) return false
+        handledCardKeys.clear()
         configRepository.setPaused(false)
         AgentBus.setState(EngineState.RUNNING)
         log("调度", "开始 BOSS 推荐匹配：直接读取推荐流，无需输入关键词", "info")
@@ -136,7 +157,7 @@ class BossClawOrchestrator(
     fun resume() {
         configRepository.setPaused(false)
         if (!isRunning) {
-            start(false)
+            start(false, inboxEnabled)
             return
         }
         AgentBus.setState(EngineState.RUNNING)
@@ -148,6 +169,7 @@ class BossClawOrchestrator(
         loopJob = null
         inboxJob?.cancel()
         inboxJob = null
+        handledCardKeys.clear()
         automator.stopCurrentTask()
         AgentBus.setState(EngineState.IDLE)
         AgentBus.setTarget("")
@@ -158,6 +180,8 @@ class BossClawOrchestrator(
         configRepository.setPaused(true)
         loopJob?.cancel()
         loopJob = null
+        inboxJob?.cancel()
+        inboxJob = null
         automator.stopCurrentTask()
         AgentBus.setState(EngineState.RISK_STOP)
         AgentBus.setTarget("风控暂停")
@@ -166,6 +190,11 @@ class BossClawOrchestrator(
     }
 
     fun runInboxOnce(): Boolean {
+        // 消息巡检与岗位巡查共用同一个无障碍页面，允许并发会互相抢页面并中断评估
+        if (loopJob?.isActive == true) {
+            log("沟通", "岗位巡查进行中，暂停或停止后再单独处理消息", "warn")
+            return false
+        }
         if (!automator.isConnected) {
             log("沟通", "无障碍服务未连接，无法扫描消息", "error")
             return false
@@ -204,6 +233,10 @@ class BossClawOrchestrator(
 
     /** 返回 null 表示发送成功，否则返回失败原因。 */
     suspend fun sendManualReply(jobId: String, text: String): String? = withContext(Dispatchers.IO) {
+        // 巡查或消息巡检进行中时页面由调度器接管，手动发送会与其争抢页面
+        if (loopJob?.isActive == true || inboxJob?.isActive == true) {
+            return@withContext "巡查进行中，请先暂停或停止后再手动发送"
+        }
         val job = repository.findJob(jobId) ?: return@withContext "本地找不到该岗位记录"
         communicator.sendManualReply(job, text)
     }
@@ -250,11 +283,13 @@ class BossClawOrchestrator(
                 continue
             }
             AgentBus.setState(EngineState.RUNNING)
-            processInbox()
-            if (configRepository.settings.value.paused) {
-                AgentBus.setState(EngineState.PAUSED)
-                delay(700)
-                continue
+            if (inboxEnabled) {
+                processInbox()
+                if (configRepository.settings.value.paused) {
+                    AgentBus.setState(EngineState.PAUSED)
+                    delay(700)
+                    continue
+                }
             }
             val feedCount = processFeed(profile, resume, 2, !settings.collectWithoutKeyword)
             if (once) {
@@ -304,12 +339,17 @@ class BossClawOrchestrator(
         var processed = 0
         for (card in cards) {
             if (configRepository.settings.value.paused) break
+            // 卡片标题常被截断，数据库精确匹配会漏掉同一岗位；先按公司 + 标题前缀做会话内去重
+            if (!handledCardKeys.add(cardKeyOf(card.company, card.title))) continue
             val existing = repository.findSimilar(card.title.trim(), card.company.trim())
             if (existing != null) continue
+            // 先占位展示当前岗位，详情读取与模型评分期间悬浮球即可看到正在评估谁
+            AgentBus.publishEvaluating(card.company, card.title)
             AgentBus.setTarget("${card.company} · ${card.title}")
             val raw = scout.inspect(card)
             if (raw == null) {
                 log("探路", "详情页采集失败，跳过 ${card.title}", "warn")
+                AgentBus.publishSkipped(card.company, card.title, "详情采集失败，已跳过")
                 scout.returnToFeed()
                 continue
             }
@@ -317,17 +357,20 @@ class BossClawOrchestrator(
             val directions = repository.enabledDirections()
             val outcome = evaluator.evaluate(raw, directions, card.tags)
             if (outcome.duplicate) {
+                AgentBus.publishSkipped(outcome.job.company, outcome.job.title, "岗位已在库中，已跳过")
                 scout.returnToFeed()
                 continue
             }
             val job = outcome.job
             if (outcome.verdict.rejected) {
                 log("筛选", "${job.company} · ${job.title} 已过滤：${outcome.verdict.reason}", "info")
+                AgentBus.publishSkipped(job.company, job.title, "已过滤：${outcome.verdict.reason}")
                 scout.returnToFeed()
                 continue
             }
             if (job.status == JobEntity.STATUS_CLOSED) {
                 log("评估", "${job.company} · ${job.title} 判定不匹配，跳过", "info")
+                AgentBus.publishSkipped(job.company, job.title, "判定不匹配，已跳过")
                 scout.returnToFeed()
                 continue
             }
@@ -337,14 +380,39 @@ class BossClawOrchestrator(
                 "${job.company} · ${job.title} → ${fit.label} ${job.score} 分：${job.reason.take(70)}",
                 if (fit == FitLevel.STRONG) "success" else "info"
             )
-            if (shouldDeliver(fit, settings.runMode)) {
-                val points = JsonCodec.decode(job.highlightsJson, emptyList<String>())
-                val greeting = communicator.prepareGreeting(job, points, profile, resume)
-                if (greeting == null) {
-                    log("沟通", "开场白未通过校验，岗位留在待确认队列", "warn")
-                    scout.returnToFeed()
-                    continue
+            // 运行模式以当前设置为准：巡查途中切到人工确认时立即停止自动发送
+            val liveSettings = configRepository.settings.value
+            if (liveSettings.runMode == RunMode.MANUAL) {
+                // 人工确认模式只评估：自定义打招呼时生成开场白供悬浮球复制，不触发任何发送动作
+                if (!liveSettings.customGreeting) {
+                    log("评估", "${job.company} · ${job.title} 已评估（人工确认，不自动发送）", "info", job.jobId)
+                } else {
+                    val points = JsonCodec.decode(job.highlightsJson, emptyList<String>())
+                    val greeting = communicator.prepareGreeting(job, points, profile, resume)
+                    if (greeting.isNullOrBlank()) {
+                        log("评估", "${job.company} · ${job.title} 已评估，开场白生成失败", "warn", job.jobId)
+                    } else {
+                        AgentBus.attachGreeting(job.jobId, greeting)
+                        log("评估", "${job.company} · ${job.title} 已评估（人工确认，不自动发送）", "info", job.jobId)
+                    }
                 }
+                scout.returnToFeed()
+            } else if (shouldDeliver(job.score, liveSettings.runMode, liveSettings.autoSendMinScore)) {
+                // 只有选择自定义打招呼才生成并填写开场白，否则直接使用 BOSS 官方招呼语
+                val greeting: String? = if (liveSettings.customGreeting) {
+                    val points = JsonCodec.decode(job.highlightsJson, emptyList<String>())
+                    val generated = communicator.prepareGreeting(job, points, profile, resume)
+                    if (generated == null) {
+                        log("沟通", "开场白未通过校验，岗位留在待确认队列", "warn")
+                        scout.returnToFeed()
+                        continue
+                    }
+                    generated
+                } else {
+                    null
+                }
+                // 官方招呼没有模型生成耗时，先停留片刻展示评估结论，避免直接跳到「立即沟通」
+                if (greeting == null) delay(EVALUATION_DWELL_MS)
                 val sent = communicator.deliver(job, greeting)
                 scout.returnToFeed()
                 if (sent) {
@@ -360,7 +428,7 @@ class BossClawOrchestrator(
                 }
                 betweenJobsDelay(settings.jobIntervalSeconds)
             } else {
-                log("调度", "岗位已进入待确认队列（${settings.runMode.label}）", "info", job.jobId)
+                log("调度", "岗位已进入待确认队列（${liveSettings.runMode.label}）", "info", job.jobId)
                 scout.returnToFeed()
             }
         }
@@ -370,12 +438,22 @@ class BossClawOrchestrator(
         return processed
     }
 
-    private fun shouldDeliver(fit: FitLevel, mode: RunMode): Boolean = when {
-        mode == RunMode.MANUAL -> false
-        fit == FitLevel.UNFIT || fit == FitLevel.CAUTIOUS -> false
-        mode == RunMode.SEMI -> fit == FitLevel.STRONG
-        else -> fit == FitLevel.STRONG || fit == FitLevel.MATCH
+    /** 自动发送只看用户设定的分数门槛，避免把谨慎或不推荐岗位放出去。 */
+    private fun shouldDeliver(score: Int, mode: RunMode, minScore: Int): Boolean {
+        if (mode == RunMode.MANUAL) return false
+        val gate = minScore.coerceIn(
+            com.bossclaw.android.data.pref.AppSettings.MIN_AUTO_SEND_SCORE,
+            com.bossclaw.android.data.pref.AppSettings.MAX_AUTO_SEND_SCORE
+        )
+        return score >= gate
     }
+
+    private fun cardKeyOf(company: String, title: String): String =
+        "${normalizeCardKey(company)}|${normalizeCardKey(title)}"
+
+    /** 去掉空白、截断省略号和常见标点后再比较，兼容列表卡片的“岗位名…”写法 */
+    private fun normalizeCardKey(raw: String): String =
+        raw.replace(Regex("""[\s…\.。,，、:：·\-—_/()（）\[\]【】]+"""), "").lowercase()
 
     private companion object {
         const val MAX_SAFE_DAILY = 150
@@ -384,5 +462,8 @@ class BossClawOrchestrator(
         const val MAX_JOB_INTERVAL_S = 600
         /** 推荐匹配一次处理的岗位数量，避免一轮就跑满一屏外的时间。 */
         const val RECOMMEND_BATCH = 6
+
+        /** 官方招呼路径下评估结论的展示停留时间，避免用户还没看到评分就进入会话。 */
+        const val EVALUATION_DWELL_MS = 900L
     }
 }

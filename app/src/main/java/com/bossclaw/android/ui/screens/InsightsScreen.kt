@@ -59,8 +59,7 @@ fun InsightsScreen(viewModel: BossClawViewModel, onOpenRecords: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
-            title = "数据看板",
-            subtitle = "今日节奏、转化漏斗与最近动态"
+            title = "数据看板"
         ) {
             TextButton(onClick = onOpenRecords) { Text("全部记录") }
         }
@@ -70,12 +69,6 @@ fun InsightsScreen(viewModel: BossClawViewModel, onOpenRecords: () -> Unit) {
         FunnelCard(funnel = funnel, onOpenRecords = onOpenRecords)
 
         RecentActivity(logs = logs, onOpenRecords = onOpenRecords)
-
-        Text(
-            text = "统计来自本地数据库，按本机时区计算；Token 统计仅作本地参考",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
@@ -228,7 +221,7 @@ private fun RecentActivity(logs: List<LogLine>, onOpenRecords: () -> Unit) {
         if (recent.isEmpty()) {
             EmptyState(
                 title = "还没有运行记录",
-                message = "开启巡查后，探路、评估与沟通的每一步都会记录在这里"
+                message = "开启巡查后，每一步都会记录在这里"
             )
         } else {
             recent.forEach { line ->

@@ -45,7 +45,7 @@ fun RecordsScreen(viewModel: BossClawViewModel) {
         item {
             ScreenHeader(
                 title = "运行记录",
-                subtitle = "本地留存最近 300 条运行日志，便于复盘每一步动作"
+                subtitle = "最近 300 条 · 仅保存在本机"
             )
         }
         item {
@@ -74,20 +74,12 @@ fun RecordsScreen(viewModel: BossClawViewModel) {
                 BossClawCard {
                     EmptyState(
                         title = "还没有日志",
-                        message = "开启巡查或试跑一轮后，探路、评估、发送与回复过程都会记录在这里"
+                        message = "开启巡查后，每一步都会记录在这里"
                     )
                 }
             }
         } else {
             items(logs, key = { it.id }, contentType = { it.level }) { log -> LogRow(log) }
-        }
-        item {
-            Text(
-                text = "日志仅保存在本机，不包含简历全文；模型调用记录包含提示词摘要，请留意隐私",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = BossClawSpacing.md)
-            )
         }
     }
 }

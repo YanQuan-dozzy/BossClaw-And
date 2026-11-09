@@ -96,8 +96,7 @@ fun SettingsScreen(viewModel: BossClawViewModel, onNavigate: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(BossClawSpacing.md)
     ) {
         ScreenHeader(
-            title = "设置",
-            subtitle = "先划定边界，再交给自动化"
+            title = "设置"
         )
 
         BossClawCard(padding = BossClawSpacing.sm) {
@@ -197,18 +196,12 @@ fun SettingsScreen(viewModel: BossClawViewModel, onNavigate: (String) -> Unit) {
                 )
             }
             Text(
-                text = "清除后将删除岗位、会话、日志、画像与模型配置，且不可恢复",
+                text = "清除后不可恢复",
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.onSurfaceVariant,
                 modifier = Modifier.padding(top = BossClawSpacing.xs)
             )
         }
-
-        Text(
-            text = "安全说明：BossClaw 不绕过平台限制，不群发、不伪造事实；遇到验证码会立即暂停并提示你人工处理",
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.onSurfaceVariant
-        )
     }
 
     if (showClearConfirm) {

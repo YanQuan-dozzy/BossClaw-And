@@ -22,8 +22,28 @@ class BossClawRepository(private val db: BossClawDatabase) {
     fun observeTokensToday(start: Long): Flow<Int> = db.auditDao().observeTokensSince(start)
 
     suspend fun findJob(jobId: String): JobEntity? = db.jobDao().find(jobId)
-    suspend fun findSimilar(title: String, company: String): JobEntity? =
-        db.jobDao().findSimilar(title, company)
+
+    /**
+     * 按公司 + 岗位名查重。列表卡片会把岗位名截断成“xxx…”，而库里存的是详情页全名，
+     * 精确匹配不到时退回到同公司内做去符号后的前缀匹配，避免同一岗位被反复采集与投递。
+     */
+    suspend fun findSimilar(title: String, company: String): JobEntity? {
+        db.jobDao().findSimilar(title, company)?.let { return it }
+        val wantTitle = normalizeName(title)
+        val wantCompany = normalizeName(company)
+        if (wantTitle.isEmpty() || wantCompany.isEmpty()) return null
+        return db.jobDao().byCompany(company).firstOrNull { job ->
+            if (normalizeName(job.company) != wantCompany) return@firstOrNull false
+            val storedTitle = normalizeName(job.title)
+            if (storedTitle.isEmpty()) return@firstOrNull false
+            val shorter = minOf(storedTitle.length, wantTitle.length)
+            shorter >= 4 && (storedTitle.startsWith(wantTitle) || wantTitle.startsWith(storedTitle))
+        }
+    }
+
+    private fun normalizeName(raw: String): String =
+        raw.replace(Regex("""[\s…\.。,，、:：·\-—_/()（）\[\]【】]+"""), "").lowercase()
+
     suspend fun allJobs(): List<JobEntity> = db.jobDao().getAll()
     suspend fun jobsByStatus(status: String): List<JobEntity> = db.jobDao().byStatus(status)
 

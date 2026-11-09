@@ -58,7 +58,7 @@ fun PermissionsScreen(viewModel: BossClawViewModel) {
     ) {
         ScreenHeader(
             title = "权限自检",
-            subtitle = "四项就绪后才建议开启长时间巡查"
+            subtitle = "四项就绪后再长时间巡查"
         )
 
         BossClawCard {
@@ -103,33 +103,6 @@ fun PermissionsScreen(viewModel: BossClawViewModel) {
                 onClick = { openSystemSettings(context, PermissionTools.batteryIntent(context)) }
             )
         }
-
-        BossClawCard {
-            Text(
-                text = "建议开启顺序",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            listOf(
-                "1. 无障碍服务：找到 BossClaw 并打开开关",
-                "2. 悬浮窗：允许在其他应用上层显示",
-                "3. 通知：允许提醒，首单发送后会推送",
-                "4. 电池优化：设为不限制，避免后台被冻结"
-            ).forEach { line ->
-                Text(
-                    text = line,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = BossClawSpacing.xs)
-                )
-            }
-        }
-
-        Text(
-            text = "BossClaw 只读取 BOSS 直聘所需的页面控件，不会上传通讯录、相册或位置信息",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
