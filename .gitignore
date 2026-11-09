@@ -4,6 +4,7 @@
 /.screenshots/
 *.jks
 *.keystore
+/keystore.properties
 *.env
 
 .gradle/
