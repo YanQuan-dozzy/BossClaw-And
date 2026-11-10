@@ -1,5 +1,7 @@
 # BossClaw 安卓端
 
+**[下载测试版 APK](https://github.com/YanQuan-dozzy/BossClaw-And/releases/download/v1.0.0-beta.1/BossClaw-1.0.0-debug.apk)** · v1.0.0 测试版（debug 签名，仅用于功能验证） · [版本说明](https://github.com/YanQuan-dozzy/BossClaw-And/releases/tag/v1.0.0-beta.1)
+
 BossClaw 是一款运行在 Android 上的求职自动化助手：通过无障碍服务读取 BOSS 直聘页面，结合本地简历画像与大模型能力，完成岗位采集、匹配评估、开场白生成与沟通跟进。所有数据保存在本机，所有对外发送动作都保留人工边界。
 
 > 本项目仅用于个人求职效率辅助。使用前请确认符合平台用户协议与当地法律法规，因使用产生的账号与合规风险由使用者自行承担。
@@ -73,7 +75,7 @@ $env:ANDROID_HOME = "<你的 Android SDK 路径>"
 
 ## 安装与首次配置
 
-1. **安装应用**，并确保设备已安装 BOSS 直聘。
+1. **安装应用**：从顶部[测试版下载链接](https://github.com/YanQuan-dozzy/BossClaw-And/releases/tag/v1.0.0-beta.1)获取 APK 安装，并确保设备已安装 BOSS 直聘。
 2. **权限自检**：在「侧栏 → 权限自检」依次开启无障碍服务、悬浮窗、通知与后台运行（忽略电池优化）。
 3. **导入简历**：在「简历中心」导入简历文件或粘贴正文，点击生成画像；匹配评分与筛选都以画像为准。
 4. **配置模型**：在「模型服务」选择预设或自定义接口，填写地址、API Key、模型名，先测试连接。支持 OpenAI 兼容与 Anthropic Messages 两类协议。
